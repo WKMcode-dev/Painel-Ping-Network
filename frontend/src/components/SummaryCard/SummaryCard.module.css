@@ -1,0 +1,18 @@
+.card {
+  position: relative;
+  min-width: 0;
+  padding: 1rem 1.1rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, var(--surface), color-mix(in srgb, var(--surface-2) 52%, transparent));
+}
+.card::after { content: ''; position: absolute; inset: auto -2rem -3rem auto; width: 7rem; height: 7rem; border-radius: 50%; background: currentColor; opacity: .045; }
+.topline { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: .76rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.icon { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: .55rem; color: currentColor; background: color-mix(in srgb, currentColor 10%, transparent); }
+.card strong { display: block; margin-top: .45rem; color: var(--text); font-family: var(--mono); font-size: clamp(1.45rem, 2.2vw, 2rem); font-weight: 680; line-height: 1; letter-spacing: -.05em; }
+.card small { display: block; margin-top: .48rem; color: var(--muted); font-size: .72rem; }
+.neutral { color: var(--info); }
+.success { color: var(--success); }
+.danger { color: var(--danger); }
+.accent { color: var(--accent); }

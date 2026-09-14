@@ -1,0 +1,27 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 1.75rem;
+  padding: 0.2rem 0.65rem;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 0.43rem;
+  height: 0.43rem;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 0.2rem color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.online { color: var(--success); background: var(--success-soft); border-color: var(--success-border); }
+.offline { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-border); }
+.unknown { color: var(--muted); background: var(--surface-2); border-color: var(--border); }
+.compact { width: 1rem; min-height: 1rem; padding: 0; border: 0; background: transparent; }
+.compact .dot { width: 0.5rem; height: 0.5rem; }

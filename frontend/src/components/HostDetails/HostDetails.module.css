@@ -1,0 +1,46 @@
+.backdrop { position: fixed; z-index: 30; inset: 0; display: flex; justify-content: flex-end; background: rgba(2, 5, 9, .68); backdrop-filter: blur(5px); animation: fade .18s ease-out; }
+.panel { width: min(32rem, 100%); height: 100%; overflow: hidden; border-left: 1px solid var(--border-strong); background: var(--background); box-shadow: -2rem 0 5rem rgba(0, 0, 0, .35); animation: slide .24s ease-out; }
+.header { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: .7rem; min-height: 5.5rem; padding: 1rem 1.15rem; border-bottom: 1px solid var(--border); background: var(--surface); }
+.icon { display: grid; width: 2.8rem; height: 2.8rem; place-items: center; color: var(--accent); border: 1px solid var(--accent-border); border-radius: .75rem; background: var(--accent-soft); }
+.header > div:nth-child(2) { display: flex; min-width: 0; flex-direction: column; }
+.header small { color: var(--muted); font-size: .65rem; }
+.header h2 { overflow: hidden; margin: .05rem 0; color: var(--text); font-size: 1.03rem; text-overflow: ellipsis; white-space: nowrap; }
+.header div > span { color: var(--muted); font-family: var(--mono); font-size: .72rem; }
+.header button { display: grid; width: 2.25rem; height: 2.25rem; place-items: center; color: var(--muted); border: 1px solid var(--border); border-radius: .6rem; background: var(--surface-2); cursor: pointer; }
+.content { height: calc(100% - 5.5rem); padding: 1.1rem; overflow-y: auto; }
+.content section { margin-top: .9rem; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.content section:first-of-type { margin-top: 0; }
+.content h3 { display: flex; justify-content: space-between; margin: 0 0 .8rem; color: var(--text); font-size: .8rem; letter-spacing: .02em; }
+.content h3 span { color: var(--muted); font-size: .65rem; font-weight: 500; }
+.incident { display: flex; gap: .8rem; padding: .9rem; color: var(--danger); border: 1px solid var(--danger-border); border-radius: var(--radius); background: var(--danger-soft); }
+.incident > span { display: grid; width: 2.3rem; height: 2.3rem; place-items: center; border-radius: .6rem; background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.incident div { display: flex; flex-direction: column; }
+.incident strong { color: var(--text); font-size: .84rem; }
+.incident p { margin: .2rem 0 0; color: var(--muted); font-size: .69rem; }
+.largeChart { height: 6rem; padding-top: .3rem; }
+.largeChart svg { height: 100%; }
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-top: .7rem; }
+.metrics > div { display: flex; flex-direction: column; gap: .2rem; padding: .65rem; border: 1px solid var(--border-soft); border-radius: .55rem; background: var(--surface-2); }
+.metrics small { color: var(--muted); font-size: .64rem; }
+.metrics strong { color: var(--text); font-family: var(--mono); font-size: .79rem; }
+.info { display: grid; gap: 0; margin: 0; }
+.info > div { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .65rem 0; border-bottom: 1px solid var(--border-soft); }
+.info > div:last-child { border-bottom: 0; }
+.info dt { display: flex; align-items: center; gap: .45rem; color: var(--muted); font-size: .71rem; }
+.info dd { margin: 0; color: var(--text); font-family: var(--mono); font-size: .7rem; text-align: right; }
+.timeline { position: relative; display: grid; gap: .9rem; }
+.event { position: relative; display: flex; gap: .65rem; color: var(--success); }
+.event[data-type='down'] { color: var(--danger); }
+.eventDot { flex: 0 0 auto; width: .5rem; height: .5rem; margin-top: .24rem; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 .22rem color-mix(in srgb, currentColor 12%, transparent); }
+.event div { display: flex; flex-direction: column; }
+.event strong { color: var(--text); font-size: .74rem; }
+.event small { margin-top: .15rem; color: var(--muted); font-size: .66rem; }
+.noEvents { margin: 0; color: var(--muted); font-size: .72rem; }
+@keyframes fade { from { opacity: 0; } }
+@keyframes slide { from { transform: translateX(2rem); opacity: .6; } }
+@media (max-width: 520px) { .header { grid-template-columns: auto 1fr auto; } .header > :nth-child(3) { display: none; } .metrics { grid-template-columns: repeat(2, 1fr); } }
+
+
+.backdrop { width: 100vw; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; color: var(--text); }
+.backdrop:not([open]) { display: none; }
+.backdrop::backdrop { background: transparent; }
