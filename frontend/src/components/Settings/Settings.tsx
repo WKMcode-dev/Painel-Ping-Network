@@ -2,13 +2,14 @@ import { useEffect, useRef } from 'react'
 import { Moon, Sun, X } from 'lucide-react'
 import { version } from '../../../package.json'
 import { useTheme } from '../../hooks/useTheme'
+import { ColorSettings } from './ColorSettings'
 import styles from './Settings.module.css'
 
 interface SettingsProps { open: boolean; onClose: () => void }
 
 export function Settings({ open, onClose }: SettingsProps) {
   const dialog = useRef<HTMLDialogElement>(null)
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, colors, setColor, resetColors } = useTheme()
 
   useEffect(() => {
     if (open && !dialog.current?.open) dialog.current?.showModal()
@@ -35,6 +36,7 @@ export function Settings({ open, onClose }: SettingsProps) {
           <label><input type="radio" name="theme" value="dark" checked={theme === 'dark'} onChange={() => setTheme('dark')} /><Moon size={22} /><span>Escuro<small>Ambientes com pouca luz</small></span></label>
         </fieldset>
       </section>
+      <ColorSettings theme={theme} colors={colors} onChange={setColor} onReset={resetColors} />
       <section className={styles.section}>
         <h3>Sobre a aplicação</h3>
         <dl className={styles.about}><div><dt>Aplicação</dt><dd>Painel Ping</dd></div><div><dt>Versão</dt><dd>{version}</dd></div></dl>

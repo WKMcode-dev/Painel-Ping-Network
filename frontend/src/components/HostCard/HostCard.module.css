@@ -2,9 +2,9 @@
 .card:hover { transform: translateY(-2px); border-color: var(--border-strong); background: var(--surface-hover); }
 .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .accent { position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--muted); }
-.online .accent { background: var(--success); box-shadow: 0 0 1rem var(--success); }
+.online .accent { background: var(--success); box-shadow: none; }
 .offline { border-color: var(--danger-border); }
-.offline .accent { background: var(--danger); box-shadow: 0 0 1rem var(--danger); }
+.offline .accent { background: var(--danger); box-shadow: none; }
 .header { display: flex; align-items: center; gap: .72rem; }
 .deviceIcon { display: grid; flex: 0 0 auto; place-items: center; width: 2.5rem; height: 2.5rem; color: var(--accent); border: 1px solid var(--border); border-radius: .7rem; background: var(--surface-2); }
 .identity { display: flex; flex: 1; min-width: 0; flex-direction: column; }

@@ -1,20 +1,19 @@
 :root {
-  --background: #080b10; --surface: #0e131a; --surface-2: #121922; --surface-3: #1a222d; --surface-hover: #121923;
-  --text: #edf2f7; --muted: #84909e; --muted-2: #556170; --border: #202a35; --border-soft: #18212b; --border-strong: #354253;
-  --accent: #ff941f; --accent-soft: rgba(255, 148, 31, .09); --accent-border: rgba(255, 148, 31, .32);
-  --success: #39d98a; --success-soft: rgba(57, 217, 138, .075); --success-border: rgba(57, 217, 138, .26);
-  --danger: #ff5964; --danger-soft: rgba(255, 89, 100, .075); --danger-border: rgba(255, 89, 100, .28);
-  --warning: #f8c15c; --warning-soft: rgba(248, 193, 92, .08); --warning-border: rgba(248, 193, 92, .26);
+  --background: #191919; --surface: #202020; --surface-2: #252525; --surface-3: #303030; --surface-hover: #292929;
+  --text: #ebebeb; --page-text: #ebebeb; --muted: #a3a3a3; --muted-2: #999999;
+  --border: #383838; --border-soft: #303030; --border-strong: #636363;
+  --accent: #d4d4d4; --success: #8db69b; --danger: #de928d; --warning: #d3b66c;
   --info: #65a7ff; --radius: .82rem; --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   color: var(--text); background: var(--background); font-family: var(--sans); font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased;
 }
 * { box-sizing: border-box; }
 html { min-width: 320px; color-scheme: light; }
-body { min-width: 320px; min-height: 100vh; margin: 0; background-color: var(--background); background-image: linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px), radial-gradient(circle at 70% -10%, rgba(255, 148, 31, .075), transparent 28rem); background-size: 32px 32px, 32px 32px, auto; }
+body { min-width: 320px; min-height: 100vh; margin: 0; background: var(--background); color: var(--page-text); }
+
 button, input { font-family: inherit; }
 button { -webkit-tap-highlight-color: transparent; }
 .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
-::selection { color: #111; background: var(--accent); }
+::selection { color: var(--accent-ink); background: var(--accent); }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: var(--background); }
 ::-webkit-scrollbar-thumb { border: 3px solid var(--background); border-radius: 999px; background: var(--border-strong); }
@@ -23,15 +22,25 @@ button { -webkit-tap-highlight-color: transparent; }
 
 /* The default is light; the saved preference is applied before React mounts. */
 :root:not([data-theme='dark']) {
-  --background: #f3f6fa; --surface: #ffffff; --surface-2: #edf2f7;
-  --surface-3: #e0e8f1; --surface-hover: #f8fafc;
-  --text: #172332; --muted: #536274; --muted-2: #627184;
-  --border: #cdd7e3; --border-soft: #e1e7ef; --border-strong: #95a6b9;
-  --accent: #a84b00; --accent-soft: #fff1e4; --accent-border: #e6b58d;
-  --success: #087845; --success-soft: #e7f6ee; --success-border: #a2d5ba;
-  --danger: #bd2438; --danger-soft: #fff0f2; --danger-border: #eab0b8;
-  --warning: #815700; --warning-soft: #fff6de; --warning-border: #dfc780;
-  --info: #2564ad;
+  --background: #ffffff; --surface: #f7f7f5; --surface-2: #f1f1ef; --surface-3: #e9e9e7; --surface-hover: #f1f1ef;
+  --text: #37352f; --page-text: #37352f; --muted: #6b6963; --muted-2: #77756f;
+  --border: #e3e2df; --border-soft: #e9e9e7; --border-strong: #a6a49d;
+  --accent: #37352f; --success: #427558; --danger: #b34b45; --warning: #896300; --info: #3375a3;
+}
+:root, :root:not([data-theme='dark']) {
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  --accent-border: color-mix(in srgb, var(--accent) 40%, var(--surface));
+  --success-soft: color-mix(in srgb, var(--success) 10%, var(--surface));
+  --success-border: color-mix(in srgb, var(--success) 40%, var(--surface));
+  --danger-soft: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  --danger-border: color-mix(in srgb, var(--danger) 40%, var(--surface));
+  --warning-soft: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  --warning-border: color-mix(in srgb, var(--warning) 40%, var(--surface));
+  --surface-2: color-mix(in srgb, var(--surface) 94%, var(--text));
+  --surface-3: color-mix(in srgb, var(--surface) 88%, var(--text));
+  --surface-hover: color-mix(in srgb, var(--surface) 96%, var(--text));
+  --muted: color-mix(in srgb, var(--text) 76%, var(--surface));
+  --muted-2: color-mix(in srgb, var(--text) 70%, var(--surface));
 }
 html[data-theme='dark'] { color-scheme: dark; }
 

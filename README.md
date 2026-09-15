@@ -141,3 +141,7 @@ Se aparecer `SELF_SIGNED_CERT_IN_CHAIN`, configure a CA corporativa confiável. 
 ### Licença
 
 Nenhuma licença de redistribuição foi escolhida nesta versão. A publicação pública não concede automaticamente licença de uso.
+
+## Versão 1.3.0 — Aparência
+
+Paleta inspirada no Notion em claro/escuro. Em Configurações → Cores, escolha entre nove destaques predefinidos ou personalize destaque, on-line, off-line, avisos, fundo e cartões com seletor e HEX. Preferências independentes por tema são salvas neste navegador. Restaurar paleta afeta apenas o tema ativo. Cores arbitrárias podem diminuir a distinção entre estados; os rótulos continuam visíveis.
