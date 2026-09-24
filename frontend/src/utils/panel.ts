@@ -10,7 +10,7 @@ export function currentHost(host: HostSnapshot, live: boolean, now: number, inte
 
 /** Never infer a recovery when observation was paused or the address was changed. */
 export function incidentRows(events: StatusEvent[]) {
-  const ordered = [...events].sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp))
+  const ordered = [...events].reverse().sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp))
   const rows: { id: string; start: string; end: string | null; duration: number | null; interrupted: boolean }[] = []
   const open = new Map<string, (typeof rows)[number]>()
   for (const event of ordered) {

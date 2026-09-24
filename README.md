@@ -167,6 +167,26 @@ Atualização: preserve `backend/storage` e `.env`, atualize os arquivos do proj
 
 `npm test` cobre o parser Windows/Linux, sequências combinatórias de estados, confirmações, persistência, CRUD, manutenção, pausa, concorrência, validação HTTP, dados desatualizados e deduplicação de alertas. `npm run build` e `npm run lint` validam os dois projetos.
 
-### Próxima etapa
+## Versão 1.5.0 — Mapa interativo
 
-Visualização de topologia em mapa de rede com nós flutuantes e conexões. Não faz parte da v1.4.0; o painel de cartões continua sendo a visualização desta versão.
+A visualização inicial agora é **Mapa da rede**, inspirada na interação de mapas mentais. Alterne para **Cartões** sem perder alterações do desenho em andamento.
+
+- Arraste balões; Shift + clique seleciona vários e permite movê-los juntos.
+- Arraste o fundo para navegar. Roda do mouse e botões controlam zoom; **Enquadrar mapa** centraliza os elementos.
+- **Tópico** ou duplo clique no fundo cria uma anotação. Selecione um balão e escolha **Adicionar subtópico** para criar outro já conectado.
+- **Conectar** e clique no destino desenha uma relação. Clique na linha para nomear ou excluir a conexão.
+- O painel lateral permite renomear tópicos e escolher cores. Nomes de dispositivos permanecem vinculados ao cadastro.
+- Duplo clique em dispositivo abre status e histórico. O ponto colorido é o status ICMP; a borda é a cor escolhida pelo operador.
+- **Organizar por setor** recalcula posições, preservando tópicos e conexões personalizados. **Desfazer/Refazer** mantém até 60 operações.
+- **Salvar mapa** grava posições, tópicos e relações no servidor. Alterações simultâneas são recusadas por revisão; não há edição colaborativa em tempo real. Recarregue nas outras telas para obter as mudanças salvas.
+- O mapa usa os filtros e a seleção de dispositivos do painel. Tópicos livres permanecem visíveis para manter a orientação. Em modo TV, a edição fica bloqueada.
+
+Atalhos com foco no mapa: N = tópico; Shift+N = subtópico; C = conectar; setas = mover seleção (Shift acelera); Delete = remover tópico/conexão; Ctrl+Z = desfazer; Ctrl+Shift+Z ou Ctrl+Y = refazer; Ctrl+S = salvar; Esc = limpar seleção/conexão.
+
+O desenho inicial é organizacional por setor. As conexões não comprovam ligações físicas e não são descobertas pelo ping. Tópicos não são sondados. Dispositivos novos entram no desenho; dispositivos removidos do cadastro saem junto com suas conexões. Alterações no inventário reiniciam a pilha de desfazer para não ressuscitar dispositivos excluídos.
+
+Persistência: `backend/storage/topology.json`; API: `GET/PUT /api/topology`. Limites: 600 balões e 2.000 conexões. O modelo aceita ciclos, mas rejeita ligações duplicadas, autorrelações e referências inválidas. O backend deve executar em um único processo por pasta de dados, como o restante da persistência JSON.
+
+### Releases
+
+As notas ficam em `docs/releases/vX.Y.Z.md`. Após os testes de Linux/Windows e Node 22/24 passarem em `main`, o workflow cria a tag da versão em `package.json`, publica uma GitHub Release e anexa o ZIP de fontes e seu SHA-256. Releases existentes não são substituídas. Cada nova entrega deve aumentar a versão e adicionar suas notas. A permissão de escrita fica restrita ao job de publicação; testes de pull requests possuem apenas leitura.

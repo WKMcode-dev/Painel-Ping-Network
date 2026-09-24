@@ -2,6 +2,7 @@ import { Activity, Gauge, Server, ShieldAlert } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { DashboardHeader } from '../components/DashboardHeader/DashboardHeader'
 import { HostDetails } from '../components/HostDetails/HostDetails'
+import { NetworkMap } from '../components/NetworkMap/NetworkMap'
 import { HostGrid } from '../components/HostGrid/HostGrid'
 import { SummaryCard } from '../components/SummaryCard/SummaryCard'
 import { Toolbar, type StatusFilter } from '../components/Toolbar/Toolbar'
@@ -16,6 +17,7 @@ import styles from './App.module.css'
 export default function App() {
   const { snapshot, connection, refresh } = useMonitor()
   const panel = usePanel(snapshot, connection === 'live')
+  const [mapView, setMapView] = useState(true)
   const [tv, setTv] = useState(false)
   const [group, setGroup] = useState('')
   const groups = useMemo(() => [...new Set(snapshot.hosts.filter(h => !panel.preferences.hidden.includes(h.id)).map(h => h.group))].sort(), [snapshot.hosts, panel.preferences.hidden])
@@ -78,7 +80,9 @@ export default function App() {
         </div>}
         <p>Resumo acima: todos os dispositivos cadastrados. Lista abaixo: seleção e filtros deste painel.</p>
         <Toolbar query={query} filter={filter} total={visibleHosts.length} onQueryChange={setQuery} onFilterChange={setFilter} onRefresh={() => void handleRefresh()} refreshing={refreshing} canRefresh={connection === 'live'} />
-        <HostGrid hosts={visibleHosts} onSelect={(host) => setSelectedId(host.id)} />
+        <div className={styles.viewSwitch} aria-label="Visualização"><button aria-pressed={mapView} onClick={() => setMapView(true)}>Mapa da rede</button><button aria-pressed={!mapView} onClick={() => setMapView(false)}>Cartões</button></div>
+        <div hidden={!mapView}><NetworkMap hosts={currentHosts} visibleIds={visibleHosts.map(h => h.id)} ready={Boolean(snapshot.generatedAt)} active={mapView} tv={tv} onDetails={setSelectedId} onSettings={() => setSettingsOpen(true)} /></div>
+        {!mapView && <HostGrid hosts={visibleHosts} onSelect={(host) => setSelectedId(host.id)} />}
       </main>
 
       <footer className={styles.footer}><span>PAINEL PING • CENTRAL DE MONITORAMENTO</span><span>Disponibilidade observada por ICMP</span></footer>

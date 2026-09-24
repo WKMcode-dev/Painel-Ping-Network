@@ -1,3 +1,4 @@
+import { createTopologyRouter } from './routes/topology.routes.js'
 import cors from 'cors'
 import express from 'express'
 import { dirname, resolve } from 'node:path'
@@ -15,6 +16,7 @@ export function createApp(monitorService: MonitorService) {
   app.get('/api/health', (_request, response) => {
     response.json({ status: 'ok', timestamp: new Date().toISOString() })
   })
+  app.use('/api/topology', createTopologyRouter())
   app.use('/api/monitor', createMonitorRouter(monitorService))
   app.use('/api', (_req, res) => { res.status(404).json({ message: 'Rota não encontrada' }) })
 

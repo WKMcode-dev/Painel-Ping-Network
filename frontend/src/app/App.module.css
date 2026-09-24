@@ -17,3 +17,7 @@
 .tv { font-size: 1.15rem; }
 .tv button strong { font-size: 1.3em; }
 .tv main { max-width: none; }
+
+.viewSwitch { display: flex; gap: 8px; margin-top: 16px; }
+.viewSwitch button { border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; background: var(--surface); color: var(--text); cursor: pointer; }
+.viewSwitch button[aria-pressed=true] { border-color: var(--accent); background: var(--accent-soft); }
