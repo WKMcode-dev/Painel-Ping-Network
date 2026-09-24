@@ -10,7 +10,7 @@ export function createApp(monitorService: MonitorService) {
   const app = express()
   app.disable('x-powered-by')
   app.use(cors({ origin: env.allowedOrigins }))
-  app.use(express.json({ limit: '32kb' }))
+  app.use(express.json({ limit: '256kb' }))
 
   app.get('/api/health', (_request, response) => {
     response.json({ status: 'ok', timestamp: new Date().toISOString() })

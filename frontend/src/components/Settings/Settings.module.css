@@ -1,4 +1,4 @@
-.dialog { width: min(560px, calc(100% - 32px)); max-height: calc(100dvh - 40px); padding: 0; color: var(--text); border: 1px solid var(--border-strong); border-radius: 16px; background: var(--surface); overflow-y: auto; }
+.dialog { width: min(820px, calc(100% - 32px)); max-height: calc(100dvh - 40px); padding: 0; color: var(--text); border: 1px solid var(--border-strong); border-radius: 16px; background: var(--surface); overflow-y: auto; }
 .dialog::backdrop { background: rgb(5 12 22 / 55%); backdrop-filter: blur(4px); }
 .header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border); }
 .header h2 { margin: 0; font-size: 22px; }

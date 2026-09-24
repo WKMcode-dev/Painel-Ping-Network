@@ -22,7 +22,7 @@ export function HostCard({ host, onSelect }: HostCardProps) {
           <strong>{host.name}</strong>
           <span>{host.address}</span>
         </span>
-        <StatusBadge status={host.status} />
+        {host.suspended ? <span>{host.suspended}</span> : <StatusBadge status={host.status} />}
       </span>
 
       <span className={styles.location}><MapPin size={13} /> {host.location}<i />{host.group}</span>

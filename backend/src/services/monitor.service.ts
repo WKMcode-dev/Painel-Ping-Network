@@ -1,3 +1,4 @@
+import type { ConfigRepository, MonitorConfig } from '../repositories/config.repository.js'
 import { randomUUID } from 'node:crypto'
 import { env } from '../config/env.js'
 import { monitoredHosts } from '../config/hosts.js'
@@ -18,8 +19,59 @@ export class MonitorService {
   constructor(
     private readonly pingService: Pick<PingService, 'probe'> = new PingService(),
     private readonly historyRepository: Pick<HistoryRepository, 'initialize' | 'getByHost' | 'getAll' | 'add' | 'flush'> = new HistoryRepository(),
-    private readonly definitions: HostDefinition[] = monitoredHosts,
+    private readonly definitions: HostDefinition[] = monitoredHosts.map(h => ({ ...h })),
   ) {}
+  private configRepository?: ConfigRepository
+  private configuration: MonitorConfig | null = null
+  private mutations = Promise.resolve()
+  private readonly successes = new Map<string, number>()
+
+  async configure(repository: ConfigRepository): Promise<void> {
+    this.configRepository = repository
+    this.configuration = await repository.load()
+    this.definitions.splice(0, this.definitions.length, ...this.configuration.hosts)
+  }
+  getConfiguration() { return this.configuration }
+  saveConfiguration(config: MonitorConfig): Promise<void> {
+    const running = this.cycle
+    const operation = this.mutations.then(async () => {
+      await running
+      if (!this.configRepository) throw new Error('Configuração indisponível')
+      await this.configRepository.save(config)
+      for (const [id, host] of this.hosts) {
+        const next = config.hosts.find(h => h.id === id)
+        if (!next || next.address !== host.address) {
+          this.interrupt(host, 'Cadastro removido ou endereço alterado')
+          this.hosts.delete(id)
+        }
+      }
+      this.configuration = config
+      this.definitions.splice(0, this.definitions.length, ...config.hosts)
+      this.seedHosts()
+      for (const definition of config.hosts) {
+        const host = this.hosts.get(definition.id)!
+        Object.assign(host, { description: undefined, enabled: true, maintenanceStart: null, maintenanceEnd: null }, definition)
+        host.consecutiveFailures = 0
+        this.successes.delete(host.id)
+        if (this.suspension(host)) { this.interrupt(host, this.suspension(host)!); host.status = 'unknown'; host.latencyMs = null }
+      }
+      this.listeners.forEach(listener => listener(this.getSnapshot()))
+    })
+    this.mutations = operation.catch(() => {})
+    return operation
+  }
+  private interrupt(host: HostSnapshot, message: string) {
+    const since = this.openIncidents.get(host.id)
+    if (since) this.historyRepository.add({ id: randomUUID(), hostId: host.id, type: 'interrupted',
+      timestamp: new Date().toISOString(), durationMs: Math.max(0, Date.now() - Date.parse(since)), message })
+    this.openIncidents.delete(host.id)
+  }
+  private suspension(host: HostDefinition): string | undefined {
+    if (host.enabled === false) return 'Monitoramento pausado'
+    const now = Date.now()
+    if (host.maintenanceStart && host.maintenanceEnd && now >= Date.parse(host.maintenanceStart) && now < Date.parse(host.maintenanceEnd)) return 'Manutenção programada'
+    return undefined
+  }
   private readonly listeners = new Set<Listener>()
   private readonly hosts = new Map<string, HostSnapshot>()
   private timer: NodeJS.Timeout | null = null
@@ -28,9 +80,15 @@ export class MonitorService {
 
   async initialize(): Promise<void> {
     await this.historyRepository.initialize()
+    this.seedHosts()
+    await this.runCycle()
+    this.timer = setInterval(() => void this.runCycle(), env.PING_INTERVAL_MS)
+  }
+
+  private seedHosts() {
     for (const host of this.definitions) {
+      if (this.hosts.has(host.id)) continue
       const events = this.historyRepository.getByHost(host.id)
-      if (this.hosts.has(host.id)) throw new Error(`ID duplicado: ${host.id}`)
       if (events[0]?.type === 'down') this.openIncidents.set(host.id, events[0].timestamp)
       this.hosts.set(host.id, {
         ...host,
@@ -52,14 +110,13 @@ export class MonitorService {
         history: [],
       })
     }
-    await this.runCycle()
-    this.timer = setInterval(() => void this.runCycle(), env.PING_INTERVAL_MS)
   }
 
   async stop(): Promise<void> {
     if (this.timer) clearInterval(this.timer)
     this.timer = null
     await this.cycle
+    await this.mutations
     await this.historyRepository.flush()
   }
 
@@ -72,6 +129,8 @@ export class MonitorService {
     const now = Date.now()
     const hosts = [...this.hosts.values()].map((host) => ({
       ...host,
+      suspended: this.suspension(host),
+      status: this.suspension(host) ? 'unknown' as const : host.status,
       currentDowntimeMs:
         host.status === 'offline' && host.lastOfflineAt
           ? Math.max(0, now - Date.parse(host.lastOfflineAt))
@@ -106,7 +165,7 @@ export class MonitorService {
 
   runCycle(): Promise<void> {
     // Manual requests share an existing cycle instead of returning stale results.
-    this.cycle ??= this.collect().finally(() => { this.cycle = null })
+    this.cycle ??= this.mutations.then(() => this.collect()).finally(() => { this.cycle = null })
     return this.cycle
   }
 
@@ -114,6 +173,13 @@ export class MonitorService {
     const queue = [...this.hosts.values()]
     await Promise.all(Array.from({ length: Math.min(queue.length, env.MAX_CONCURRENT_PINGS) }, async () => {
       for (let host = queue.shift(); host; host = queue.shift()) {
+        const suspended = this.suspension(host)
+        if (suspended) {
+          this.interrupt(host, suspended)
+          host.status = 'unknown'; host.consecutiveFailures = 0; host.latencyMs = null
+          this.successes.delete(host.id)
+          continue
+        }
         try { this.applyResult(host, await this.pingService.probe(host.address)) }
         catch (error) {
           this.applyResult(host, { alive: false, latencyMs: null, ttl: null,
@@ -126,6 +192,11 @@ export class MonitorService {
   }
 
   private applyResult(host: HostSnapshot, result: PingResult): void {
+    if (this.suspension(host)) {
+      this.interrupt(host, this.suspension(host)!)
+      host.status = 'unknown'; host.consecutiveFailures = 0; this.successes.delete(host.id)
+      return
+    }
     const previousStatus = host.status
     host.lastCheckedAt = result.checkedAt
     host.lastError = result.error ?? null
@@ -134,14 +205,17 @@ export class MonitorService {
     if (result.probeError) {
       host.status = 'unknown'
       host.consecutiveFailures = 0
+      this.successes.delete(host.id)
       return // A collector failure is not a lost network packet.
     }
     host.consecutiveFailures = result.alive ? 0 : host.consecutiveFailures + 1
 
-    if (result.alive) {
+    const successes = result.alive ? (this.successes.get(host.id) ?? 0) + 1 : 0
+    this.successes.set(host.id, successes)
+    if (result.alive && successes >= (this.configuration?.recoveryThreshold ?? 1)) {
       host.status = 'online'
       host.lastOnlineAt = result.checkedAt
-    } else if (host.consecutiveFailures >= env.FAILURE_THRESHOLD) {
+    } else if (host.consecutiveFailures >= (this.configuration?.failureThreshold ?? env.FAILURE_THRESHOLD)) {
       host.status = 'offline'
     }
 

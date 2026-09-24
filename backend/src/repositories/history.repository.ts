@@ -6,7 +6,7 @@ import { env } from '../config/env.js'
 import type { StatusEvent } from '../types/monitor.js'
 
 const eventSchema = z.object({
-  id: z.string(), hostId: z.string(), type: z.enum(['down', 'recovery']),
+  id: z.string(), hostId: z.string(), type: z.enum(['down', 'recovery', 'interrupted']),
   timestamp: z.string().datetime(), durationMs: z.number().nonnegative().nullable(), message: z.string(),
 })
 const currentDirectory = dirname(fileURLToPath(import.meta.url))

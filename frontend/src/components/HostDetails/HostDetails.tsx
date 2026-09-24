@@ -4,6 +4,7 @@ import type { HostSnapshot, StatusEvent } from '../../types/monitor'
 import { formatDateTime, formatDuration, formatLatency, formatPercent } from '../../utils/formatters'
 import { Sparkline } from '../Sparkline/Sparkline'
 import { StatusBadge } from '../StatusBadge/StatusBadge'
+import { incidentRows } from '../../utils/panel'
 import { fetchHostEvents } from '../../services/monitor-api'
 import styles from './HostDetails.module.css'
 
@@ -40,7 +41,7 @@ export function HostDetails({ host, events, onClose }: HostDetailsProps) {
         <div className={styles.header}>
           <div className={styles.icon}><Network size={22} /></div>
           <div><small>{host.group}</small><h2 id="host-details-title">{host.name}</h2><span>{host.address}</span></div>
-          <StatusBadge status={host.status} />
+          {host.suspended ? <span>{host.suspended}</span> : <StatusBadge status={host.status} />}
           <button onClick={onClose} type="button" title="Fechar detalhes"><X size={19} /><span className="sr-only">Fechar</span></button>
         </div>
 
@@ -72,15 +73,24 @@ export function HostDetails({ host, events, onClose }: HostDetailsProps) {
           </section>
 
           <section>
+            <h3>Quedas e retornos</h3>
+            <p>Histórico retido no servidor. Durações são observadas; períodos sem coleta não comprovam indisponibilidade contínua.</p>
+            <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', textAlign: 'left' }}>
+              <thead><tr><th>Queda confirmada</th><th>Retorno / encerramento</th><th>Duração observada</th></tr></thead>
+              <tbody>{incidentRows(hostEvents).map(row => <tr key={row.id}>
+                <td>{formatDateTime(row.start)}</td><td>{row.end ? formatDateTime(row.end) : 'Sem encerramento registrado'}{row.interrupted ? ' (administrativo)' : ''}</td>
+                <td>{row.duration != null ? formatDuration(row.duration) : host.status === 'offline' ? `${formatDuration(host.currentDowntimeMs)} (em andamento)` : '—'}</td>
+              </tr>)}</tbody>
+            </table></div>
             <h3>Histórico de eventos</h3>
             {eventError && <p role="status">Não foi possível carregar o histórico completo.</p>}
             <div className={styles.timeline}>
               {hostEvents.length ? hostEvents.map((event) => (
                 <div key={event.id} className={styles.event} data-type={event.type}>
                   <span className={styles.eventDot} />
-                  <div><strong>{event.type === 'down' ? 'Queda detectada' : 'Conexão restabelecida'}</strong><small>{formatDateTime(event.timestamp)}{event.durationMs ? ` • indisponível por ${formatDuration(event.durationMs)}` : ''}</small></div>
+                  <div><strong>{event.type === 'down' ? 'Queda detectada' : event.type === 'recovery' ? 'Conexão restabelecida' : 'Incidente encerrado administrativamente'}</strong><small>{formatDateTime(event.timestamp)}{event.durationMs != null ? ` • indisponível por ${formatDuration(event.durationMs)}` : ''}</small></div>
                 </div>
-              )) : <p className={styles.noEvents}>Nenhuma mudança de estado registrada nesta sessão.</p>}
+              )) : <p className={styles.noEvents}>Nenhuma mudança de estado no histórico retido.</p>}
             </div>
           </section>
         </div>

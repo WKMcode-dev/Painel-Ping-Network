@@ -6,6 +6,10 @@ export interface HostDefinition {
   address: string
   location: string
   group: string
+  enabled?: boolean
+  maintenanceStart?: string | null
+  maintenanceEnd?: string | null
+  suspended?: string
   description?: string
 }
 
@@ -27,7 +31,7 @@ export interface HistoryPoint {
 export interface StatusEvent {
   id: string
   hostId: string
-  type: 'down' | 'recovery'
+  type: 'down' | 'recovery' | 'interrupted'
   timestamp: string
   durationMs: number | null
   message: string

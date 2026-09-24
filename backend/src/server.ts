@@ -4,7 +4,10 @@ import { env } from './config/env.js'
 import { MonitorService } from './services/monitor.service.js'
 import { createStatusGateway } from './websocket/status.gateway.js'
 
+import { ConfigRepository } from './repositories/config.repository.js'
+
 const monitorService = new MonitorService()
+await monitorService.configure(new ConfigRepository())
 await monitorService.initialize()
 
 const server = createServer(createApp(monitorService))

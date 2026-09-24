@@ -13,3 +13,7 @@
 
 
 .notice { padding: 16px; font-size: 16px; line-height: 1.5; color: var(--warning); border: 1px solid var(--warning-border); background: var(--warning-soft); border-radius: 10px; }
+
+.tv { font-size: 1.15rem; }
+.tv button strong { font-size: 1.3em; }
+.tv main { max-width: none; }
