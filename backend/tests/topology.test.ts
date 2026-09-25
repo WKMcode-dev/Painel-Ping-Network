@@ -7,7 +7,7 @@ import { createServer } from 'node:http'
 import express from 'express'
 import { TopologyRepository, TopologyConflict, topologySchema } from '../src/repositories/topology.repository.js'
 import { createTopologyRouter } from '../src/routes/topology.routes.js'
-import { initialGraph, reconcileGraph, connectNodes, zoomAt, worldPoint, fitNodes, edgeCurve } from '../../frontend/src/utils/topology.js'
+import { initialGraph, reconcileGraph, connectNodes, zoomAt, worldPoint, fitNodes, edgeCurve, edgeRoute, edgePoints, insertBend, snap, CORNER_RADIUS } from '../../frontend/src/utils/topology.js'
 const devices = [{ id: 'a', name: 'Router A', group: 'Garagem' }, { id: 'b', name: 'Router B', group: 'TI' }]
 
 test('map migration starts empty and revision prevents concurrent overwrite', async () => {
@@ -58,7 +58,8 @@ test('inventory updates preserve custom coordinates and notes; remove orphan edg
   device.x = -150; device.y = 293
   graph.nodes.push({ id: 'note', label: 'Firewall', x: 200, y: 300, color: 'pink' })
   const next = reconcileGraph(graph, [devices[0]!, { id: 'c', name: 'New host', group: 'TI' }])
-  assert.equal(next.nodes.find(n => n.hostId === 'a')!.x, -150)
+  assert.equal(next.nodes.find(n => n.hostId === 'a')!.x, snap(-150))
+  assert.equal(next.nodes.find(n => n.hostId === 'a')!.y, snap(293))
   assert.ok(next.nodes.some(n => n.id === 'note'))
   assert.ok(next.nodes.some(n => n.hostId === 'c'))
   assert.ok(!next.nodes.some(n => n.hostId === 'b'))
@@ -77,6 +78,29 @@ test('connecting supports cycles but rejects self, duplicate and missing nodes',
   for (const edge of graph.edges) assert.ok(!edgeCurve(graph.nodes.find(n => n.id === edge.source)!, graph.nodes.find(n => n.id === edge.target)!).path.includes('NaN'))
   const fit = fitNodes(graph.nodes, 1400, 800)
   assert.ok(Number.isFinite(fit.x) && Number.isFinite(fit.y))
+})
+
+test('legacy edges stay straight; inserted bends snap to grid with corners capped at ten', () => {
+  const graph = initialGraph(devices)
+  const source = graph.nodes.find(n => n.id === 'root')!
+  const target = graph.nodes.find(n => n.id === 'sector:0')!
+  const legacy = { id: 'legacy', source: source.id, target: target.id, label: '' }
+  const straight = edgeRoute(source, target, legacy)
+  assert.match(straight.path, /^M -?\d+ -?\d+ L -?\d+ -?\d+$/)
+  assert.equal(straight.path.includes('Q'), false)
+  const first = insertBend(legacy, source, target, { x: 234, y: 21 })
+  assert.ok(first.bends && first.bends.length === 1)
+  assert.equal(first.bends[0]!.x, snap(234))
+  assert.equal(first.bends[0]!.y, snap(21))
+  const curved = edgeRoute(source, target, first)
+  assert.match(curved.path, / Q /)
+  assert.ok(CORNER_RADIUS <= 10)
+  const second = insertBend(first, source, target, { x: 280, y: 90 })
+  assert.equal(second.bends?.length, 2)
+  assert.equal(edgePoints(source, target, second).length, 4)
+  assert.ok(topologySchema.safeParse({ ...graph, edges: [second] }).success)
+  assert.equal(topologySchema.safeParse({ ...graph, edges: [{ ...second, bends: Array.from({ length: 25 }, (_, i) => ({ x: i * 24, y: 0 })) }] }).success, false)
+  assert.equal(topologySchema.safeParse({ ...graph, edges: [{ ...second, bends: [{ x: Infinity, y: 0 }] }] }).success, false)
 })
 
 test('HTTP map save/load validates JSON, rejects foreign origin and stale revision', async () => {

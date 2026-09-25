@@ -6,7 +6,7 @@ import { monitoredHosts } from '../config/hosts.js'
 import { env } from '../config/env.js'
 import { isValidHost } from '../utils/host-validation.js'
 
-const hostSchema = z.object({
+export const hostSchema = z.object({
   id: z.string().min(1).max(80).regex(/^[a-zA-Z0-9_-]+$/),
   name: z.string().trim().min(1).max(100), address: z.string().trim().refine(isValidHost, 'IP ou hostname inválido'),
   group: z.string().trim().min(1).max(100), location: z.string().trim().max(100),

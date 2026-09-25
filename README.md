@@ -54,7 +54,7 @@ Abra `http://localhost:5173`. O backend usa `http://localhost:3333` e o Vite enc
 
 ## Cadastrar os endereços reais
 
-Use **Configurações → Dispositivos e monitoramento** para adicionar, editar, pausar e remover hosts, organizar setores e agendar manutenção. Clique em **Salvar cadastro e regras**. Os dados ficam em `backend/storage/config.json`, fora do Git. Faça backup da pasta `backend/storage` ao atualizar.
+Use **Dispositivos** no cabeçalho para adicionar, consultar, editar, pausar e remover hosts, organizar setores, escolher os dispositivos que aparecem na TV e agendar manutenção. Em **Configurações**, ajuste as regras de monitoramento, alertas, tema e cores. Os dados ficam em `backend/storage/config.json`, fora do Git. Faça backup da pasta `backend/storage` ao atualizar.
 
 O arquivo `backend/src/config/hosts.ts` fornece somente os exemplos iniciais quando ainda não existe configuração salva. Cada item possui:
 
@@ -169,7 +169,7 @@ Atualização: preserve `backend/storage` e `.env`, atualize os arquivos do proj
 
 ## Versão 1.5.0 — Mapa interativo
 
-A visualização inicial agora é **Mapa da rede**, inspirada na interação de mapas mentais. Alterne para **Cartões** sem perder alterações do desenho em andamento.
+A visualização principal é o **Mapa da rede**, inspirado na interação de mapas mentais.
 
 - Arraste balões; Shift + clique seleciona vários e permite movê-los juntos.
 - Arraste o fundo para navegar. Roda do mouse e botões controlam zoom; **Enquadrar mapa** centraliza os elementos.
@@ -184,6 +184,12 @@ A visualização inicial agora é **Mapa da rede**, inspirada na interação de 
 Atalhos com foco no mapa: N = tópico; Shift+N = subtópico; C = conectar; setas = mover seleção (Shift acelera); Delete = remover tópico/conexão; Ctrl+Z = desfazer; Ctrl+Shift+Z ou Ctrl+Y = refazer; Ctrl+S = salvar; Esc = limpar seleção/conexão.
 
 O desenho inicial é organizacional por setor. As conexões não comprovam ligações físicas e não são descobertas pelo ping. Tópicos não são sondados. Dispositivos novos entram no desenho; dispositivos removidos do cadastro saem junto com suas conexões. Alterações no inventário reiniciam a pilha de desfazer para não ressuscitar dispositivos excluídos.
+
+## Versão 1.6.0 — Painel apenas com mapa
+
+O painel exibe somente o mapa e os quatro indicadores **Dispositivos**, **Online**, **Incidentes Ativos** e **Latência Média**; o cabeçalho de visão geral e a visualização por cartões foram removidos. O cadastro de endereços ganhou a área **Dispositivos**, com listagem, busca e criação, edição, pausa e remoção individuais. As preferências e regras permanecem em Configurações.
+
+Balões e pontos de dobra se encaixam na grade de 24 unidades ao serem criados ou arrastados. A grade acompanha pan e zoom. Novas conexões começam retas: selecione uma linha e clique em **Adicionar ponto de dobra** ou dê duplo clique na linha para inserir um ponto; arraste o ponto para mudar a rota. Duplo clique no ponto ou Delete o remove. Cada canto recebe raio de no máximo 10 unidades. **Salvar mapa** guarda também os pontos de dobra; mapas anteriores continuam compatíveis, com posições ajustadas à grade mais próxima.
 
 Persistência: `backend/storage/topology.json`; API: `GET/PUT /api/topology`. Limites: 600 balões e 2.000 conexões. O modelo aceita ciclos, mas rejeita ligações duplicadas, autorrelações e referências inválidas. O backend deve executar em um único processo por pasta de dados, como o restante da persistência JSON.
 

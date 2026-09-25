@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Moon, Sun, X } from 'lucide-react'
 import { version } from '../../../package.json'
 import { useTheme } from '../../hooks/useTheme'
-import { DeviceSettings } from './DeviceSettings'
+import { MonitorRules } from './MonitorRules'
 import type { PanelPreferences } from '../../types/config'
 import { ColorSettings } from './ColorSettings'
 import styles from './Settings.module.css'
@@ -38,7 +38,7 @@ export function Settings({ open, onClose, preferences, onPreferences }: Settings
           <label><input type="radio" name="theme" value="dark" checked={theme === 'dark'} onChange={() => setTheme('dark')} /><Moon size={22} /><span>Escuro<small>Ambientes com pouca luz</small></span></label>
         </fieldset>
       </section>
-      {open && <DeviceSettings preferences={preferences} onPreferences={onPreferences} />}
+      {open && <MonitorRules preferences={preferences} onPreferences={onPreferences} />}
       <ColorSettings theme={theme} colors={colors} onChange={setColor} onReset={resetColors} />
       <section className={styles.section}>
         <h3>Sobre a aplicação</h3>

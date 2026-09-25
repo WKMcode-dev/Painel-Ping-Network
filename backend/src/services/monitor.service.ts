@@ -23,7 +23,7 @@ export class MonitorService {
   ) {}
   private configRepository?: ConfigRepository
   private configuration: MonitorConfig | null = null
-  private mutations = Promise.resolve()
+  private mutations: Promise<unknown> = Promise.resolve()
   private readonly successes = new Map<string, number>()
 
   async configure(repository: ConfigRepository): Promise<void> {
@@ -33,10 +33,14 @@ export class MonitorService {
   }
   getConfiguration() { return this.configuration }
   saveConfiguration(config: MonitorConfig): Promise<void> {
+    return this.updateConfiguration(() => config).then(() => {})
+  }
+  updateConfiguration(change: (current: MonitorConfig) => MonitorConfig): Promise<MonitorConfig> {
     const running = this.cycle
     const operation = this.mutations.then(async () => {
       await running
-      if (!this.configRepository) throw new Error('Configuração indisponível')
+      if (!this.configRepository || !this.configuration) throw new Error('Configuração indisponível')
+      const config = change(this.configuration)
       await this.configRepository.save(config)
       for (const [id, host] of this.hosts) {
         const next = config.hosts.find(h => h.id === id)
@@ -56,6 +60,7 @@ export class MonitorService {
         if (this.suspension(host)) { this.interrupt(host, this.suspension(host)!); host.status = 'unknown'; host.latencyMs = null }
       }
       this.listeners.forEach(listener => listener(this.getSnapshot()))
+      return config
     })
     this.mutations = operation.catch(() => {})
     return operation

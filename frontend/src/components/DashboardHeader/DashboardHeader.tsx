@@ -1,9 +1,9 @@
-import { Clock3, Expand, RadioTower, Settings } from 'lucide-react'
+import { Clock3, Expand, RadioTower, Settings, Network } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ConnectionState } from '../../types/monitor'
 import styles from './DashboardHeader.module.css'
 
-interface DashboardHeaderProps { connection: ConnectionState; onSettings: () => void }
+interface DashboardHeaderProps { connection: ConnectionState; onSettings: () => void; onDevices: () => void }
 
 const connectionLabels: Record<ConnectionState, string> = {
   connecting: 'Conectando',
@@ -12,7 +12,7 @@ const connectionLabels: Record<ConnectionState, string> = {
   reconnecting: 'Reconectando',
 }
 
-export function DashboardHeader({ connection, onSettings }: DashboardHeaderProps) {
+export function DashboardHeader({ connection, onSettings, onDevices }: DashboardHeaderProps) {
   const [clock, setClock] = useState(new Date())
   useEffect(() => {
     const timer = window.setInterval(() => setClock(new Date()), 1000)
@@ -35,6 +35,7 @@ export function DashboardHeader({ connection, onSettings }: DashboardHeaderProps
       </div>
       <div className={styles.actions}>
         <span className={styles.clock}><Clock3 size={15} /><strong>{clock.toLocaleTimeString('pt-BR')}</strong><small>{clock.toLocaleDateString('pt-BR')}</small></span>
+        <button onClick={onDevices} type="button" title="Gerenciar dispositivos" aria-label="Gerenciar dispositivos"><Network size={18} /><span>Dispositivos</span></button>
         <button onClick={onSettings} type="button" title="Configurações" aria-label="Abrir configurações"><Settings size={18} /></button>
         <button onClick={toggleFullscreen} type="button" title="Alternar tela cheia"><Expand size={17} /><span className="sr-only">Alternar tela cheia</span></button>
       </div>

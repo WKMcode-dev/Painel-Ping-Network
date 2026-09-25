@@ -1,6 +1,6 @@
 import type { DashboardSnapshot } from '../types/monitor'
 
-import type { MonitorConfig } from '../types/config'
+import type { MonitorConfig, DeviceConfig } from '../types/config'
 
 const configuredBase = import.meta.env.VITE_API_URL?.replace(/\/$/, '') ?? ''
 
@@ -41,3 +41,18 @@ export async function configurationRequest(config?: MonitorConfig): Promise<Moni
   if (!response.ok) throw new Error(data.message ?? 'Configuração indisponível')
   return data
 }
+
+async function deviceRequest(path: string, method: 'POST' | 'PATCH' | 'DELETE', body?: Partial<DeviceConfig>): Promise<DeviceConfig | null> {
+  const response = await fetch(`${configuredBase}/api/monitor/hosts${path}`, {
+    method, headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(15000),
+  })
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new Error(data.message ?? 'Não foi possível salvar o dispositivo')
+  }
+  return response.status === 204 ? null : response.json() as Promise<DeviceConfig>
+}
+export const createDevice = (input: Omit<DeviceConfig, 'id'>) => deviceRequest('', 'POST', input) as Promise<DeviceConfig>
+export const editDevice = (id: string, input: Partial<DeviceConfig>) => deviceRequest(`/${encodeURIComponent(id)}`, 'PATCH', input) as Promise<DeviceConfig>
+export const removeDevice = (id: string) => deviceRequest(`/${encodeURIComponent(id)}`, 'DELETE')

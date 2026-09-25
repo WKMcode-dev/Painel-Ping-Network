@@ -10,7 +10,9 @@ export const topologySchema = z.object({
     x: z.number().finite().min(-200000).max(200000), y: z.number().finite().min(-200000).max(200000),
     color: z.enum(['neutral', 'blue', 'green', 'orange', 'purple', 'pink']).default('neutral'),
   })).max(600),
-  edges: z.array(z.object({ id, source: id, target: id, label: z.string().max(80).default('') })).max(2000),
+  edges: z.array(z.object({ id, source: id, target: id, label: z.string().max(80).default(''),
+    bends: z.array(z.object({ x: z.number().finite().min(-200000).max(200000), y: z.number().finite().min(-200000).max(200000) })).max(24).optional(),
+  })).max(2000),
 }).superRefine((graph, ctx) => {
   const ids = new Set(graph.nodes.map(n => n.id))
   const hosts = graph.nodes.flatMap(n => n.hostId ? [n.hostId] : [])

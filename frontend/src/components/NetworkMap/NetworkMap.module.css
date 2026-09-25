@@ -9,15 +9,17 @@
 button.save { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .status { padding-block: 8px; justify-content: flex-start; }
 .status > span { margin-right: auto; }
-.canvas { position: relative; height: clamp(500px, 70vh, 1000px); overflow: hidden; touch-action: none; user-select: none; background-color: var(--background); background-image: radial-gradient(var(--border) 1px, transparent 1px); background-size: 24px 24px; cursor: grab; }
+.canvas { position: relative; height: clamp(600px, 78vh, 1200px); overflow: hidden; touch-action: none; user-select: none; background-color: var(--background); background-image: linear-gradient(to right, var(--border-soft) 1px, transparent 1px), linear-gradient(to bottom, var(--border-soft) 1px, transparent 1px); background-size: 24px 24px; cursor: grab; }
 .canvas:active { cursor: grabbing; }
 .world { position: absolute; inset: 0 auto auto 0; transform-origin: 0 0; width: 0; height: 0; }
 .edges { position: absolute; overflow: visible; width: 1px; height: 1px; pointer-events: none; }
 .edgeLine { fill: none; stroke: var(--border-strong); stroke-width: 2; }
 .edgeHit { fill: none; stroke: transparent; stroke-width: 18; pointer-events: stroke; cursor: pointer; }
+.bend { fill: var(--background); stroke: var(--info); stroke-width: 3; pointer-events: all; cursor: grab; }
+.bend:focus-visible { stroke-width: 5; }
 .edges g[data-selected=true] .edgeLine { stroke: var(--info); stroke-width: 3; }
 .edgeLabel { fill: var(--text); font-size: 12px; paint-order: stroke; stroke: var(--background); stroke-width: 5px; stroke-linejoin: round; }
-.node { --node-color: var(--border-strong); position: absolute; width: 224px; height: 100px; display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 14px 18px; border: 1.5px solid var(--node-color); border-radius: 22px; background: var(--surface); box-shadow: 0 4px 12px rgb(0 0 0 / 5%); cursor: grab; font-size: 13px; }
+.node { --node-color: var(--border-strong); position: absolute; width: 216px; height: 96px; display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 14px 18px; border: 1.5px solid var(--node-color); border-radius: 20px; background: var(--surface); box-shadow: 0 4px 12px rgb(0 0 0 / 5%); cursor: grab; font-size: 13px; }
 .node[data-color=blue] { --node-color: #6a9ec4; }
 .node[data-color=green] { --node-color: #78a68a; }
 .node[data-color=orange] { --node-color: #c79a70; }
