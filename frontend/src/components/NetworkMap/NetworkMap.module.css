@@ -26,6 +26,18 @@ button.save { background: var(--accent); color: var(--accent-ink); border-color:
 .node[data-color=purple] { --node-color: #ac8fc4; }
 .node[data-color=pink] { --node-color: #c488a6; }
 .node[data-selected=true], .node[data-source=true] { outline: 3px solid var(--info); outline-offset: 4px; }
+.map .port { position: absolute; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 1px solid var(--accent); border-radius: 50%; background: var(--surface); color: var(--accent); opacity: 0; transform: translate(-50%, -50%); transition: opacity .12s; }
+.node:hover .port, .node:focus-within .port, .node[data-selected=true] .port, .node[data-source=true] .port { opacity: 1; }
+.port[data-side=top] { top: 0; left: 50%; }
+.port[data-side=right] { top: 50%; left: 100%; }
+.port[data-side=bottom] { top: 100%; left: 50%; }
+.port[data-side=left] { top: 50%; left: 0; }
+.map[data-tv=true] { height: 100dvh; margin: 0; border: 0; border-radius: 0; }
+.map[data-tv=true] .canvas { height: 100dvh; }
+.map[data-tv=true] .toolbar, .map[data-tv=true] .status, .map[data-tv=true] .help, .map[data-tv=true] .zoom { display: none; }
+.map .exitTv { position: absolute; z-index: 5; top: 12px; right: 12px; opacity: .18; }
+.map .exitTv:hover, .map .exitTv:focus-visible { opacity: 1; }
+.map:fullscreen { width: 100vw; height: 100dvh; background: var(--background); }
 .nodeTitle { display: flex; align-items: center; gap: 9px; }
 .nodeTitle strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .dot { flex-shrink: 0; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }

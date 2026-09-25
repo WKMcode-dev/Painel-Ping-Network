@@ -10,3 +10,7 @@
 .tv { font-size: 1.15rem; }
 .tv button strong { font-size: 1.3em; }
 .tv main { max-width: none; }
+.tv .main { width: 100%; padding: 0; }
+.tv .summary, .tv .notice { display: none; }
+.tvBar { margin: 0; }
+.tv .tvBar { display: none; }

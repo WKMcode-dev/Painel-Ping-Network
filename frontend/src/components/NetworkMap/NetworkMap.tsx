@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { Network, Plus, Minus, Maximize, Undo2, Redo2, Save, MousePointer2, Link2, Hand } from 'lucide-react'
 import type { HostSnapshot } from '../../types/monitor'
-import type { Graph, MapNode, Viewport } from '../../types/topology'
+import type { Graph, MapNode, MapSide, Viewport } from '../../types/topology'
 import { useTopology } from '../../hooks/useTopology'
 import { GRID, connectNodes, edgePoints, edgeRoute, fitNodes, initialGraph, insertBend, snap, snapPoint, uniqueId, worldPoint, zoomAt } from '../../utils/topology'
 import { formatLatency } from '../../utils/formatters'
 import { MapInspector } from './MapInspector'
 import styles from './NetworkMap.module.css'
 
-interface Props { hosts: HostSnapshot[]; visibleIds: string[]; ready: boolean; tv: boolean; onDetails: (id: string) => void; onDevices: () => void }
+interface Props { hosts: HostSnapshot[]; visibleIds: string[]; ready: boolean; tv: boolean; onDetails: (id: string) => void; onDevices: () => void; onExitTv: () => void }
 type Gesture = { pointer: number; startX: number; startY: number; view: Viewport; graph: Graph; ids: string[]; bend?: { edgeId: string; index: number }; moved: boolean; capture: Element }
-export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices }: Props) {
+export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices, onExitTv }: Props) {
   const editor = useTopology(hosts, ready)
   const [view, setView] = useState<Viewport>({ x: 50, y: 50, zoom: .8 })
   const [selected, setSelected] = useState<string[]>([])
   const [edgeId, setEdgeId] = useState<string | null>(null)
-  const [connecting, setConnecting] = useState<string | null>(null)
+  const [connecting, setConnecting] = useState<{ id: string; side?: MapSide } | null>(null)
   const [tool, setTool] = useState<'select' | 'pan'>('select')
   const [locked, setLocked] = useState(false)
   const [preview, setPreview] = useState<Graph | null>(null)
@@ -37,6 +37,16 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices 
   const fit = () => {
     if (canvas.current) setView(fitNodes(nodes, canvas.current.clientWidth, canvas.current.clientHeight))
   }
+  useEffect(() => {
+    if (!tv) return
+    const update = () => { if (canvas.current && graph) setView(fitNodes(graph.nodes.filter(n => !n.hostId || visibleSet.has(n.hostId)), canvas.current.clientWidth, canvas.current.clientHeight)) }
+    const frame = requestAnimationFrame(update)
+    window.addEventListener('resize', update)
+    document.addEventListener('fullscreenchange', update)
+    return () => { cancelAnimationFrame(frame); window.removeEventListener('resize', update); document.removeEventListener('fullscreenchange', update) }
+  // Refit on entering TV mode; regular map editing should retain the user's camera.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tv])
   // Fit once on opening; later monitoring snapshots never disturb a user's camera.
   useEffect(() => {
     if (!graph || !canvas.current) return
@@ -78,7 +88,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices 
     event.stopPropagation()
     canvas.current?.focus({ preventScroll: true })
     if (connecting && id && editable) {
-      editor.commit(connectNodes(editor.graph, connecting, id, uniqueId())); setConnecting(null); return
+      editor.commit(connectNodes(editor.graph, connecting.id, id, uniqueId(), connecting.side)); setConnecting(null); return
     }
     const dragging = id && editable && tool === 'select'
     let ids = dragging ? (selected.includes(id) ? selected : event.shiftKey ? [...selected, id] : [id]) : []
@@ -121,8 +131,15 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices 
   }
   const zoom = (factor: number) => setView(v => zoomAt(v, v.zoom * factor, { x: (canvas.current?.clientWidth ?? 800) / 2, y: (canvas.current?.clientHeight ?? 600) / 2 }))
   const choose = (id: string) => {
-    if (connecting && editable && editor.graph) { editor.commit(connectNodes(editor.graph, connecting, id, uniqueId())); setConnecting(null) }
+    if (connecting && editable && editor.graph) { editor.commit(connectNodes(editor.graph, connecting.id, id, uniqueId(), connecting.side)); setConnecting(null) }
     else { setSelected([id]); setEdgeId(null) }
+  }
+  const selectPort = (id: string, side: MapSide) => {
+    if (!editable || !editor.graph) return
+    if (connecting && connecting.id !== id) {
+      editor.commit(connectNodes(editor.graph, connecting.id, id, uniqueId(), connecting.side, side)); setConnecting(null)
+    } else setConnecting(connecting?.id === id && connecting.side === side ? null : { id, side })
+    setSelected([id]); setEdgeId(null)
   }
   const addBend = (raw?: { x: number; y: number }) => {
     if (!editor.graph || !edge || !editable) return
@@ -137,7 +154,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices 
     const point = raw ?? { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 }
     editor.commit({ ...editor.graph, edges: editor.graph.edges.map(e => e.id === edge.id ? insertBend(e, source, target, point) : e) })
   }
-  return <section className={styles.map} aria-label="Mapa interativo da rede" onKeyDown={event => {
+  return <section id="infrastructure-map" className={styles.map} data-tv={tv} aria-label="Mapa interativo da rede" onKeyDown={event => {
     if ((event.target as HTMLElement).closest('input,select,textarea')) return
     if (event.key === 'Escape') { setConnecting(null); setSelected([]); setEdgeId(null); return }
     if (!editable || !editor.graph) return
@@ -145,7 +162,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices 
     else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') { event.preventDefault(); editor.redo() }
     else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); void editor.save() }
     else if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); remove() }
-    else if (event.key.toLowerCase() === 'c' && !event.ctrlKey && !event.metaKey && node) { setConnecting(node.id) }
+    else if (event.key.toLowerCase() === 'c' && !event.ctrlKey && !event.metaKey && node) { setConnecting({ id: node.id }) }
     else if (event.key.toLowerCase() === 'n' && !event.ctrlKey && !event.metaKey) { event.preventDefault(); addTopic(event.shiftKey ? node : undefined) }
     else if (event.key.startsWith('Arrow') && selected.length) {
       event.preventDefault(); const step = event.shiftKey ? 40 : 10
@@ -160,7 +177,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices 
         <button aria-label="Selecionar e arrastar balões" aria-pressed={tool === 'select'} onClick={() => setTool('select')}><MousePointer2 size={17} /></button>
         <button aria-label="Mover o mapa" aria-pressed={tool === 'pan'} onClick={() => setTool('pan')}><Hand size={17} /></button>
         <button disabled={!editable || !graph} onClick={() => addTopic()}><Plus size={16} /> Tópico</button>
-        <button disabled={!editable || !node} aria-pressed={Boolean(connecting)} onClick={() => setConnecting(connecting ? null : node?.id ?? null)}><Link2 size={16} /> Conectar</button>
+        <button disabled={!editable || !node} aria-pressed={Boolean(connecting)} onClick={() => setConnecting(connecting ? null : node ? { id: node.id } : null)}><Link2 size={16} /> Conectar</button>
         <button disabled={!editable || !editor.canUndo} aria-label="Desfazer" onClick={editor.undo}><Undo2 size={17} /></button>
         <button disabled={!editable || !editor.canRedo} aria-label="Refazer" onClick={editor.redo}><Redo2 size={17} /></button>
         {!tv && <button onClick={() => { setLocked(!locked); setConnecting(null) }} aria-pressed={locked}>{locked ? 'Editar mapa' : 'Bloquear edição'}</button>}
@@ -177,9 +194,10 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices 
         editor.commit({ ...editor.graph, nodes: editor.graph.nodes.map((n, i) => ({ ...n, x: snap(positions.get(n.id)?.x ?? 1100 + Math.floor(i / 8) * 312), y: snap(positions.get(n.id)?.y ?? (i % 8) * 144) })) })
       }}>Organizar por setor</button>
     </div>
-    {editor.error && <p className={styles.message} role="alert">{editor.error} As alterações locais foram mantidas.</p>}
-    {hint && <p className={styles.message} role="status">{hint} <button onClick={() => setHint('')}>Fechar</button></p>}
+    {!tv && editor.error && <p className={styles.message} role="alert">{editor.error} As alterações locais foram mantidas.</p>}
+    {!tv && hint && <p className={styles.message} role="status">{hint} <button onClick={() => setHint('')}>Fechar</button></p>}
     {connecting && editable && <p className={styles.message} role="status">Clique no balão de destino para conectar. Esc cancela.</p>}
+    {tv && <button type="button" className={styles.exitTv} onClick={onExitTv}>Sair do modo TV</button>}
     <div ref={canvas} className={styles.canvas} tabIndex={0} aria-label="Área do mapa: arraste balões ou o fundo, use a roda para zoom" data-tool={tool} data-locked={!editable}
       style={{ backgroundPosition: `${view.x}px ${view.y}px`, backgroundSize: `${GRID * view.zoom}px ${GRID * view.zoom}px` }}
       onPointerDown={e => start(e)} onPointerMove={move} onPointerUp={e => end(e)} onPointerCancel={e => end(e, true)}
@@ -218,17 +236,22 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices 
         {nodes.map(n => {
           const host = n.hostId ? hostMap.get(n.hostId) : undefined
           const status = host?.suspended ?? (host ? { online: 'On-line', offline: 'Off-line', unknown: 'Verificando' }[host.status] : 'Tópico')
-          return <div key={n.id} className={styles.node} data-color={n.color} data-selected={selected.includes(n.id)} data-source={connecting === n.id} data-node-id={n.id}
+          return <div key={n.id} className={styles.node} data-color={n.color} data-selected={selected.includes(n.id)} data-source={connecting?.id === n.id} data-node-id={n.id}
             style={{ left: n.x, top: n.y }} role="button" tabIndex={0} aria-label={`${host?.name ?? n.label}, ${status}`} aria-pressed={selected.includes(n.id)}
             onPointerDown={e => start(e, n.id)} onDoubleClick={e => { e.stopPropagation(); if (host) onDetails(host.id); else choose(n.id) }}
             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(n.id) } }}>
             <span className={styles.nodeTitle}><i className={styles.dot} data-status={host?.suspended ? 'unknown' : host?.status ?? 'topic'} /><strong>{host?.name ?? n.label}</strong></span>
             <span className={styles.address}>{host?.address ?? 'Tópico de organização'}</span>
             <span className={styles.nodeBottom}><span>{status}</span>{host && <b>{formatLatency(host.latencyMs)}</b>}</span>
+            {editable && (['top', 'right', 'bottom', 'left'] as const).map(side => <button key={side} type="button" className={styles.port} data-side={side} title={`Conectar pelo lado ${ { top: 'superior', right: 'direito', bottom: 'inferior', left: 'esquerdo' }[side]}`}
+              aria-label={`Conectar ${n.label} pelo lado ${ { top: 'superior', right: 'direito', bottom: 'inferior', left: 'esquerdo' }[side]}`}
+              aria-pressed={connecting?.id === n.id && connecting.side === side}
+              onPointerDown={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}
+              onClick={event => { event.stopPropagation(); selectPort(n.id, side) }}><Plus size={13} /></button>)}
           </div>
         })}
       </div>
-      {editable && graph && (node || edge) && <div onPointerDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}><MapInspector key={`${node?.id ?? edge?.id}:${node?.label ?? edge?.label}`} node={node} edge={edge} graph={graph} host={node?.hostId ? hostMap.get(node.hostId) : undefined} commit={editor.commit} onDetails={onDetails} onConnect={() => setConnecting(node?.id ?? null)} onChild={() => addTopic(node)} onDelete={remove} onAddBend={() => addBend()} /></div>}
+      {editable && graph && (node || edge) && <div onPointerDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}><MapInspector key={`${node?.id ?? edge?.id}:${node?.label ?? edge?.label}`} node={node} edge={edge} graph={graph} host={node?.hostId ? hostMap.get(node.hostId) : undefined} commit={editor.commit} onDetails={onDetails} onConnect={() => setConnecting(node ? { id: node.id } : null)} onChild={() => addTopic(node)} onDelete={remove} onAddBend={() => addBend()} /></div>}
       <div className={styles.zoom} onPointerDown={e => e.stopPropagation()}>
         <button aria-label="Diminuir zoom" onClick={() => zoom(1 / 1.2)}><Minus size={17} /></button><span>{Math.round(view.zoom * 100)}%</span>
         <button aria-label="Aumentar zoom" onClick={() => zoom(1.2)}><Plus size={17} /></button><button aria-label="Enquadrar mapa" onClick={fit}><Maximize size={17} /></button>

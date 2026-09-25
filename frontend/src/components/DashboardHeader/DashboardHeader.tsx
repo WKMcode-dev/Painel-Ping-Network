@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import type { ConnectionState } from '../../types/monitor'
 import styles from './DashboardHeader.module.css'
 
-interface DashboardHeaderProps { connection: ConnectionState; onSettings: () => void; onDevices: () => void }
+interface DashboardHeaderProps { connection: ConnectionState; onSettings: () => void; onDevices: () => void; onTv: () => void }
 
 const connectionLabels: Record<ConnectionState, string> = {
   connecting: 'Conectando',
@@ -12,17 +12,12 @@ const connectionLabels: Record<ConnectionState, string> = {
   reconnecting: 'Reconectando',
 }
 
-export function DashboardHeader({ connection, onSettings, onDevices }: DashboardHeaderProps) {
+export function DashboardHeader({ connection, onSettings, onDevices, onTv }: DashboardHeaderProps) {
   const [clock, setClock] = useState(new Date())
   useEffect(() => {
     const timer = window.setInterval(() => setClock(new Date()), 1000)
     return () => window.clearInterval(timer)
   }, [])
-
-  const toggleFullscreen = () => {
-    if (document.fullscreenElement) void document.exitFullscreen()
-    else void document.documentElement.requestFullscreen()
-  }
 
   return (
     <header className={styles.header}>
@@ -37,7 +32,7 @@ export function DashboardHeader({ connection, onSettings, onDevices }: Dashboard
         <span className={styles.clock}><Clock3 size={15} /><strong>{clock.toLocaleTimeString('pt-BR')}</strong><small>{clock.toLocaleDateString('pt-BR')}</small></span>
         <button onClick={onDevices} type="button" title="Gerenciar dispositivos" aria-label="Gerenciar dispositivos"><Network size={18} /><span>Dispositivos</span></button>
         <button onClick={onSettings} type="button" title="Configurações" aria-label="Abrir configurações"><Settings size={18} /></button>
-        <button onClick={toggleFullscreen} type="button" title="Alternar tela cheia"><Expand size={17} /><span className="sr-only">Alternar tela cheia</span></button>
+        <button onClick={onTv} type="button" title="Modo TV: apenas mapa em tela cheia"><Expand size={17} /><span className="sr-only">Modo TV em tela cheia</span></button>
       </div>
     </header>
   )

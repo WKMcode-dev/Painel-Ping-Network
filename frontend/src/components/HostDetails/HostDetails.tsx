@@ -34,6 +34,7 @@ export function HostDetails({ host, events, onClose }: HostDetailsProps) {
   }, [hostId, events])
   if (!host) return null
   const hostEvents = loaded?.id === host.id ? loaded.events : events.filter((event) => event.hostId === host.id)
+  const incidents = incidentRows(hostEvents)
 
   return (
     <dialog ref={dialog} className={styles.backdrop} onClose={onClose} aria-labelledby="host-details-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
@@ -75,12 +76,15 @@ export function HostDetails({ host, events, onClose }: HostDetailsProps) {
           <section>
             <h3>Quedas e retornos</h3>
             <p>Histórico retido no servidor. Durações são observadas; períodos sem coleta não comprovam indisponibilidade contínua.</p>
-            <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', textAlign: 'left' }}>
-              <thead><tr><th>Queda confirmada</th><th>Retorno / encerramento</th><th>Duração observada</th></tr></thead>
-              <tbody>{incidentRows(hostEvents).map(row => <tr key={row.id}>
-                <td>{formatDateTime(row.start)}</td><td>{row.end ? formatDateTime(row.end) : 'Sem encerramento registrado'}{row.interrupted ? ' (administrativo)' : ''}</td>
-                <td>{row.duration != null ? formatDuration(row.duration) : host.status === 'offline' ? `${formatDuration(host.currentDowntimeMs)} (em andamento)` : '—'}</td>
-              </tr>)}</tbody>
+            <div className={styles.tableScroll}><table className={styles.incidentTable}>
+              <caption className="sr-only">Registro de quedas e retornos do dispositivo {host.name}</caption>
+              <thead><tr><th scope="col">Situação</th><th scope="col">Queda confirmada</th><th scope="col">Retorno / encerramento</th><th scope="col">Duração observada</th></tr></thead>
+              <tbody>{incidents.map(row => <tr key={row.id}>
+                <td><span className={styles.incidentTag} data-state={row.interrupted ? 'administrative' : row.end ? 'recovered' : 'active'}>{row.interrupted ? 'Encerrado' : row.end ? 'Restabelecido' : 'Em andamento'}</span></td>
+                <td><time dateTime={row.start}>{formatDateTime(row.start)}</time></td>
+                <td>{row.end ? <time dateTime={row.end}>{formatDateTime(row.end)}</time> : 'Aguardando retorno'}</td>
+                <td>{row.duration != null ? formatDuration(row.duration) : host.status === 'offline' ? formatDuration(host.currentDowntimeMs) : '—'}</td>
+              </tr>)}{!incidents.length && <tr><td colSpan={4} className={styles.emptyRow}>Nenhuma queda registrada no período retido.</td></tr>}</tbody>
             </table></div>
             <h3>Histórico de eventos</h3>
             {eventError && <p role="status">Não foi possível carregar o histórico completo.</p>}

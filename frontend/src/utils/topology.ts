@@ -1,4 +1,4 @@
-import type { Graph, MapEdge, MapNode, MapPoint, Viewport } from '../types/topology'
+import type { Graph, MapEdge, MapNode, MapPoint, MapSide, Viewport } from '../types/topology'
 export const GRID = 24, NODE_WIDTH = 216, NODE_HEIGHT = 96, CORNER_RADIUS = 10
 export const uniqueId = () => `map-${Array.from(crypto.getRandomValues(new Uint8Array(16)), n => n.toString(16).padStart(2, '0')).join('')}`
 export const clampCoordinate = (value: number) => Math.max(-200000, Math.min(200000, value))
@@ -55,16 +55,32 @@ export function fitNodes(nodes: MapNode[], width: number, height: number): Viewp
   const zoom = Math.max(.15, Math.min(1.2, (width - 100) / w, (height - 100) / h))
   return { x: (width - w * zoom) / 2 - minX * zoom, y: (height - h * zoom) / 2 - minY * zoom, zoom }
 }
-export function connectNodes(graph: Graph, source: string, target: string, id: string): Graph {
+export function connectNodes(graph: Graph, source: string, target: string, id: string, sourceSide?: MapSide, targetSide?: MapSide): Graph {
   if (graph.edges.length >= 2000 || source === target || !graph.nodes.some(n => n.id === source) || !graph.nodes.some(n => n.id === target)
     || graph.edges.some(e => (e.source === source && e.target === target) || (e.target === source && e.source === target))) return graph
-  return { ...graph, edges: [...graph.edges, { id, source, target, label: '' }] }
+  return { ...graph, edges: [...graph.edges, { id, source, target, label: '', ...(sourceSide && { sourceSide }), ...(targetSide && { targetSide }) }] }
 }
-export function edgePoints(source: MapNode, target: MapNode, edge: Pick<MapEdge, 'bends'>): MapPoint[] {
-  const forward = target.x >= source.x
-  const x1 = source.x + (forward ? NODE_WIDTH : 0), y1 = source.y + NODE_HEIGHT / 2
-  const x2 = target.x + (forward ? 0 : NODE_WIDTH), y2 = target.y + NODE_HEIGHT / 2
-  return [{ x: x1, y: y1 }, ...(edge.bends ?? []), { x: x2, y: y2 }]
+export function anchor(node: MapNode, side: MapSide): MapPoint {
+  switch (side) {
+    case 'top': return { x: node.x + NODE_WIDTH / 2, y: node.y }
+    case 'right': return { x: node.x + NODE_WIDTH, y: node.y + NODE_HEIGHT / 2 }
+    case 'bottom': return { x: node.x + NODE_WIDTH / 2, y: node.y + NODE_HEIGHT }
+    case 'left': return { x: node.x, y: node.y + NODE_HEIGHT / 2 }
+  }
+}
+/** Choose a facing surface using the direction to the next bend or node. */
+export function facingSide(from: MapNode, toward: MapPoint): MapSide {
+  const dx = toward.x - (from.x + NODE_WIDTH / 2), dy = toward.y - (from.y + NODE_HEIGHT / 2)
+  const scaledX = Math.abs(dx) / NODE_WIDTH, scaledY = Math.abs(dy) / NODE_HEIGHT
+  return scaledX >= scaledY ? dx >= 0 ? 'right' : 'left' : dy >= 0 ? 'bottom' : 'top'
+}
+export function edgePoints(source: MapNode, target: MapNode, edge: Pick<MapEdge, 'bends' | 'sourceSide' | 'targetSide'>): MapPoint[] {
+  const sourceCenter = { x: source.x + NODE_WIDTH / 2, y: source.y + NODE_HEIGHT / 2 }
+  const targetCenter = { x: target.x + NODE_WIDTH / 2, y: target.y + NODE_HEIGHT / 2 }
+  const bends = edge.bends ?? []
+  const sourceSide = edge.sourceSide ?? facingSide(source, bends[0] ?? targetCenter)
+  const targetSide = edge.targetSide ?? facingSide(target, bends.at(-1) ?? sourceCenter)
+  return [anchor(source, sourceSide), ...bends, anchor(target, targetSide)]
 }
 /** Segments are straight. Only explicitly inserted corners get a small radius. */
 export function edgeRoute(source: MapNode, target: MapNode, edge: Pick<MapEdge, 'bends'>) {

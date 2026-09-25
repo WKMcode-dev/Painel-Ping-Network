@@ -191,6 +191,12 @@ O painel exibe somente o mapa e os quatro indicadores **Dispositivos**, **Online
 
 Balões e pontos de dobra se encaixam na grade de 24 unidades ao serem criados ou arrastados. A grade acompanha pan e zoom. Novas conexões começam retas: selecione uma linha e clique em **Adicionar ponto de dobra** ou dê duplo clique na linha para inserir um ponto; arraste o ponto para mudar a rota. Duplo clique no ponto ou Delete o remove. Cada canto recebe raio de no máximo 10 unidades. **Salvar mapa** guarda também os pontos de dobra; mapas anteriores continuam compatíveis, com posições ajustadas à grade mais próxima.
 
+## Versão 1.6.1 — Ligações em quatro lados e tela de TV limpa
+
+Conexões sem lado escolhido acompanham a posição dos balões: a linha pode chegar pela superfície superior, inferior, direita ou esquerda, e considera os pontos de dobra ao calcular a direção. Os botões **+** aparecem nas quatro faces de cada balão ao passar o mouse ou selecionar: clique no primeiro **+** para escolher a saída, depois no **+** do destino para escolher a entrada. Clique no corpo do destino para deixar a entrada automática. Os lados escolhidos permanecem fixos ao mover os balões e são guardados em **Salvar mapa**; os mapas existentes seguem automáticos.
+
+O histórico de quedas e retornos agora tem tabela com situação, horário de início, retorno e duração. O **Modo TV / tela cheia** mostra só o mapa da infraestrutura, sem cartões, barras ou ferramentas; use **Esc** ou o botão discreto **Sair do modo TV** para voltar ao painel. A rotação de setores continua funcionando quando configurada.
+
 Persistência: `backend/storage/topology.json`; API: `GET/PUT /api/topology`. Limites: 600 balões e 2.000 conexões. O modelo aceita ciclos, mas rejeita ligações duplicadas, autorrelações e referências inválidas. O backend deve executar em um único processo por pasta de dados, como o restante da persistência JSON.
 
 ### Releases

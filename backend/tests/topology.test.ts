@@ -103,6 +103,20 @@ test('legacy edges stay straight; inserted bends snap to grid with corners cappe
   assert.equal(topologySchema.safeParse({ ...graph, edges: [{ ...second, bends: [{ x: Infinity, y: 0 }] }] }).success, false)
 })
 
+test('connections face nearby nodes vertically and preserve manually selected ports', () => {
+  const source = { id: 'a', label: 'Router', x: 24, y: 24, color: 'blue' as const }
+  const target = { id: 'b', label: 'Switch', x: 48, y: 360, color: 'blue' as const }
+  assert.deepEqual(edgePoints(source, target, {}), [{ x: 132, y: 120 }, { x: 156, y: 360 }])
+  assert.deepEqual(edgePoints(target, source, {}), [{ x: 156, y: 360 }, { x: 132, y: 120 }])
+  const graph = connectNodes({ nodes: [source, target], edges: [] }, 'a', 'b', 'explicit', 'left', 'right')
+  assert.deepEqual(edgePoints(source, target, graph.edges[0]!), [{ x: 24, y: 72 }, { x: 264, y: 408 }])
+  assert.ok(topologySchema.safeParse(graph).success)
+  assert.deepEqual(edgePoints({ ...source, x: 720 }, target, graph.edges[0]!), [{ x: 720, y: 72 }, { x: 264, y: 408 }])
+  assert.equal(topologySchema.safeParse({ ...graph, edges: [{ ...graph.edges[0], sourceSide: 'diagonal' }] }).success, false)
+  const bent = { ...graph.edges[0]!, sourceSide: undefined, targetSide: undefined, bends: [{ x: 1000, y: 72 }] }
+  assert.deepEqual(edgePoints(source, target, bent)[0], { x: 240, y: 72 })
+})
+
 test('HTTP map save/load validates JSON, rejects foreign origin and stale revision', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'ping-map-api-'))
   const app = express().use(express.json()).use('/api/topology', createTopologyRouter(new TopologyRepository(join(dir, 'map.json'))))

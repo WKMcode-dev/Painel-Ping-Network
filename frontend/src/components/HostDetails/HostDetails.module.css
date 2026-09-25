@@ -36,6 +36,16 @@
 .event strong { color: var(--text); font-size: .74rem; }
 .event small { margin-top: .15rem; color: var(--muted); font-size: .66rem; }
 .noEvents { margin: 0; color: var(--muted); font-size: .72rem; }
+.tableScroll { overflow-x: auto; border: 1px solid var(--border); border-radius: .65rem; }
+.incidentTable { width: 100%; min-width: 590px; border-collapse: collapse; text-align: left; font-size: .72rem; }
+.incidentTable th { padding: .75rem .65rem; color: var(--muted); background: var(--surface-2); font-size: .66rem; font-weight: 650; white-space: nowrap; }
+.incidentTable td { padding: .8rem .65rem; border-top: 1px solid var(--border-soft); color: var(--text); vertical-align: middle; }
+.incidentTable tbody tr:nth-child(even) { background: var(--surface-2); }
+.incidentTable time { font-family: var(--mono); font-size: .69rem; white-space: nowrap; }
+.incidentTable .emptyRow { padding: 1.25rem; color: var(--muted); text-align: center; }
+.incidentTag { display: inline-block; padding: .3rem .5rem; border-radius: 999px; color: var(--danger); background: var(--danger-soft); font-size: .65rem; white-space: nowrap; }
+.incidentTag[data-state=recovered] { color: var(--success); background: var(--success-soft); }
+.incidentTag[data-state=administrative] { color: var(--muted); background: var(--surface-2); }
 @keyframes fade { from { opacity: 0; } }
 @keyframes slide { from { transform: translateX(2rem); opacity: .6; } }
 @media (max-width: 520px) { .header { grid-template-columns: auto 1fr auto; } .header > :nth-child(3) { display: none; } .metrics { grid-template-columns: repeat(2, 1fr); } }
