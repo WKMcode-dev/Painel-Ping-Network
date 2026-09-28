@@ -207,6 +207,12 @@ O mapa mantém as edições locais ao alternar para Cartões; use **Salvar mapa*
 
 O modo TV em tela cheia abre **Cartões** quando a seção Cartões estiver ativa e abre **Mapa** quando a seção Mapa estiver ativa. O menu, as barras e os quatro indicadores ficam fora da apresentação, e a rotação de setores continua funcionando em ambas. Saia com **Esc** ou **Sair do modo TV** para voltar à mesma seção. Os cartões da TV exibem os dados atualizados continuamente, sem abrir janelas de edição.
 
+## Versão 1.8.0 — Desenho de infraestrutura personalizável
+
+Inspirado em diagramas de rede com localidades circulares, nuvens WAN, equipamentos e grupos de dispositivos: selecione um balão no mapa para mudar sua **forma** (retângulo arredondado, retângulo, cápsula, elipse, círculo, nuvem ou losango), **largura**, **altura**, **preenchimento**, **borda** e **texto**. O preenchimento oferece cores prontas ou qualquer cor no seletor; o texto muda automaticamente para uma cor legível, podendo ser ajustado depois.
+
+Selecione uma ligação para editar sua **cor**, cor do rótulo, espessura e traço contínuo, tracejado ou pontilhado. As faces de ligação e os pontos de dobra continuam editáveis. Use **Fundo e grade** na barra do mapa para personalizar o fundo, a grade ou ocultá-la. **Salvar mapa** persiste todos esses ajustes para outras telas; mapas antigos continuam com o estilo padrão. As cores e relações indicam a organização desenhada pelo operador, e não a descoberta automática de topologia física via ICMP.
+
 Persistência: `backend/storage/topology.json`; API: `GET/PUT /api/topology`. Limites: 600 balões e 2.000 conexões. O modelo aceita ciclos, mas rejeita ligações duplicadas, autorrelações e referências inválidas. O backend deve executar em um único processo por pasta de dados, como o restante da persistência JSON.
 
 ### Releases

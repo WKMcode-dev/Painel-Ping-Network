@@ -4,6 +4,12 @@ export const uniqueId = () => `map-${Array.from(crypto.getRandomValues(new Uint8
 export const clampCoordinate = (value: number) => Math.max(-200000, Math.min(200000, value))
 export const snap = (value: number) => clampCoordinate(Math.round(value / GRID) * GRID)
 export const snapPoint = (point: MapPoint): MapPoint => ({ x: snap(point.x), y: snap(point.y) })
+export function nodeSize(node: MapNode) {
+  const defaultSize = node.shape === 'circle' || node.shape === 'diamond' ? { width: 144, height: 144 }
+    : node.shape === 'ellipse' || node.shape === 'cloud' ? { width: 216, height: 120 }
+      : node.shape === 'pill' ? { width: 216, height: 72 } : { width: NODE_WIDTH, height: NODE_HEIGHT }
+  return { width: node.width ?? defaultSize.width, height: node.height ?? defaultSize.height }
+}
 
 /** Device names/status remain owned by monitoring, not by this visual document. */
 export function reconcileGraph(graph: Graph, hosts: { id: string; name: string; group: string }[]): Graph {
@@ -11,7 +17,7 @@ export function reconcileGraph(graph: Graph, hosts: { id: string; name: string; 
   const nodes = graph.nodes.filter(n => !n.hostId || hostIds.has(n.hostId)).map(n => ({ ...n, x: snap(n.x), y: snap(n.y),
     label: n.hostId ? hosts.find(h => h.id === n.hostId)!.name : n.label }))
   const existing = new Set(nodes.flatMap(n => n.hostId ? [n.hostId] : []))
-  const right = nodes.length ? Math.max(...nodes.map(n => n.x)) + 300 : 0
+  const right = nodes.length ? Math.max(...nodes.map(n => n.x + nodeSize(n).width)) + 84 : 0
   const missing = hosts.filter(h => !existing.has(h.id))
   missing.forEach((host, index) => nodes.push({ id: `host:${host.id}`, hostId: host.id, label: host.name,
     x: snap(right + Math.floor(index / 8) * 312), y: snap((index % 8) * 144), color: 'neutral' }))
@@ -50,8 +56,8 @@ export function zoomAt(view: Viewport, zoom: number, point: { x: number; y: numb
 export function fitNodes(nodes: MapNode[], width: number, height: number): Viewport {
   if (!nodes.length) return { x: 40, y: 40, zoom: 1 }
   const minX = Math.min(...nodes.map(n => n.x)), minY = Math.min(...nodes.map(n => n.y))
-  const w = Math.max(...nodes.map(n => n.x)) + NODE_WIDTH - minX
-  const h = Math.max(...nodes.map(n => n.y)) + NODE_HEIGHT - minY
+  const w = Math.max(...nodes.map(n => n.x + nodeSize(n).width)) - minX
+  const h = Math.max(...nodes.map(n => n.y + nodeSize(n).height)) - minY
   const zoom = Math.max(.15, Math.min(1.2, (width - 100) / w, (height - 100) / h))
   return { x: (width - w * zoom) / 2 - minX * zoom, y: (height - h * zoom) / 2 - minY * zoom, zoom }
 }
@@ -61,29 +67,32 @@ export function connectNodes(graph: Graph, source: string, target: string, id: s
   return { ...graph, edges: [...graph.edges, { id, source, target, label: '', ...(sourceSide && { sourceSide }), ...(targetSide && { targetSide }) }] }
 }
 export function anchor(node: MapNode, side: MapSide): MapPoint {
+  const { width, height } = nodeSize(node)
   switch (side) {
-    case 'top': return { x: node.x + NODE_WIDTH / 2, y: node.y }
-    case 'right': return { x: node.x + NODE_WIDTH, y: node.y + NODE_HEIGHT / 2 }
-    case 'bottom': return { x: node.x + NODE_WIDTH / 2, y: node.y + NODE_HEIGHT }
-    case 'left': return { x: node.x, y: node.y + NODE_HEIGHT / 2 }
+    case 'top': return { x: node.x + width / 2, y: node.y }
+    case 'right': return { x: node.x + width, y: node.y + height / 2 }
+    case 'bottom': return { x: node.x + width / 2, y: node.y + height }
+    case 'left': return { x: node.x, y: node.y + height / 2 }
   }
 }
 /** Choose a facing surface using the direction to the next bend or node. */
 export function facingSide(from: MapNode, toward: MapPoint): MapSide {
-  const dx = toward.x - (from.x + NODE_WIDTH / 2), dy = toward.y - (from.y + NODE_HEIGHT / 2)
-  const scaledX = Math.abs(dx) / NODE_WIDTH, scaledY = Math.abs(dy) / NODE_HEIGHT
+  const { width, height } = nodeSize(from)
+  const dx = toward.x - (from.x + width / 2), dy = toward.y - (from.y + height / 2)
+  const scaledX = Math.abs(dx) / width, scaledY = Math.abs(dy) / height
   return scaledX >= scaledY ? dx >= 0 ? 'right' : 'left' : dy >= 0 ? 'bottom' : 'top'
 }
 export function edgePoints(source: MapNode, target: MapNode, edge: Pick<MapEdge, 'bends' | 'sourceSide' | 'targetSide'>): MapPoint[] {
-  const sourceCenter = { x: source.x + NODE_WIDTH / 2, y: source.y + NODE_HEIGHT / 2 }
-  const targetCenter = { x: target.x + NODE_WIDTH / 2, y: target.y + NODE_HEIGHT / 2 }
+  const sourceSize = nodeSize(source), targetSize = nodeSize(target)
+  const sourceCenter = { x: source.x + sourceSize.width / 2, y: source.y + sourceSize.height / 2 }
+  const targetCenter = { x: target.x + targetSize.width / 2, y: target.y + targetSize.height / 2 }
   const bends = edge.bends ?? []
   const sourceSide = edge.sourceSide ?? facingSide(source, bends[0] ?? targetCenter)
   const targetSide = edge.targetSide ?? facingSide(target, bends.at(-1) ?? sourceCenter)
   return [anchor(source, sourceSide), ...bends, anchor(target, targetSide)]
 }
 /** Segments are straight. Only explicitly inserted corners get a small radius. */
-export function edgeRoute(source: MapNode, target: MapNode, edge: Pick<MapEdge, 'bends'>) {
+export function edgeRoute(source: MapNode, target: MapNode, edge: Pick<MapEdge, 'bends' | 'sourceSide' | 'targetSide'>) {
   const points = edgePoints(source, target, edge)
   let path = `M ${points[0]!.x} ${points[0]!.y}`
   for (let i = 1; i < points.length - 1; i++) {

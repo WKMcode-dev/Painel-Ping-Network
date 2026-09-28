@@ -4,16 +4,23 @@ import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 
 const id = z.string().min(1).max(160)
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Use uma cor hexadecimal #RRGGBB')
 export const topologySchema = z.object({
   nodes: z.array(z.object({
     id, hostId: z.string().min(1).max(80).optional(), label: z.string().trim().min(1).max(100),
     x: z.number().finite().min(-200000).max(200000), y: z.number().finite().min(-200000).max(200000),
     color: z.enum(['neutral', 'blue', 'green', 'orange', 'purple', 'pink']).default('neutral'),
+    shape: z.enum(['rounded', 'rectangle', 'pill', 'ellipse', 'circle', 'cloud', 'diamond']).optional(),
+    width: z.number().int().min(96).max(576).optional(), height: z.number().int().min(72).max(576).optional(),
+    fill: hexColor.optional(), outline: hexColor.optional(), textColor: hexColor.optional(),
   })).max(600),
   edges: z.array(z.object({ id, source: id, target: id, label: z.string().max(80).default(''),
     sourceSide: z.enum(['top', 'right', 'bottom', 'left']).optional(), targetSide: z.enum(['top', 'right', 'bottom', 'left']).optional(),
+    stroke: hexColor.optional(), labelColor: hexColor.optional(), lineWidth: z.number().int().min(1).max(8).optional(),
+    lineStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
     bends: z.array(z.object({ x: z.number().finite().min(-200000).max(200000), y: z.number().finite().min(-200000).max(200000) })).max(24).optional(),
   })).max(2000),
+  appearance: z.object({ background: hexColor.optional(), gridColor: hexColor.optional(), showGrid: z.boolean().optional() }).optional(),
 }).superRefine((graph, ctx) => {
   const ids = new Set(graph.nodes.map(n => n.id))
   const hosts = graph.nodes.flatMap(n => n.hostId ? [n.hostId] : [])

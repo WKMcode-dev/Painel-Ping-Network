@@ -7,7 +7,7 @@ import { createServer } from 'node:http'
 import express from 'express'
 import { TopologyRepository, TopologyConflict, topologySchema } from '../src/repositories/topology.repository.js'
 import { createTopologyRouter } from '../src/routes/topology.routes.js'
-import { initialGraph, reconcileGraph, connectNodes, zoomAt, worldPoint, fitNodes, edgeCurve, edgeRoute, edgePoints, insertBend, snap, CORNER_RADIUS } from '../../frontend/src/utils/topology.js'
+import { initialGraph, reconcileGraph, connectNodes, zoomAt, worldPoint, fitNodes, edgeCurve, edgeRoute, edgePoints, insertBend, nodeSize, snap, CORNER_RADIUS } from '../../frontend/src/utils/topology.js'
 const devices = [{ id: 'a', name: 'Router A', group: 'Garagem' }, { id: 'b', name: 'Router B', group: 'TI' }]
 
 test('map migration starts empty and revision prevents concurrent overwrite', async () => {
@@ -115,6 +115,30 @@ test('connections face nearby nodes vertically and preserve manually selected po
   assert.equal(topologySchema.safeParse({ ...graph, edges: [{ ...graph.edges[0], sourceSide: 'diagonal' }] }).success, false)
   const bent = { ...graph.edges[0]!, sourceSide: undefined, targetSide: undefined, bends: [{ x: 1000, y: 72 }] }
   assert.deepEqual(edgePoints(source, target, bent)[0], { x: 240, y: 72 })
+})
+
+test('variable map shapes and colors persist with anchors matching their dimensions', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ping-map-appearance-'))
+  try {
+    const repo = new TopologyRepository(join(dir, 'map.json'))
+    const nodes = [
+      { id: 'site', label: 'Taguatinga', x: 24, y: 24, color: 'orange' as const, shape: 'circle' as const, width: 192, height: 192, fill: '#e36100', textColor: '#ffffff' },
+      { id: 'router', label: 'Firewall', x: 360, y: 48, color: 'blue' as const, shape: 'rectangle' as const, width: 240, height: 120, outline: '#003399' },
+    ]
+    const edge = { id: 'fiber', source: 'site', target: 'router', label: 'Fibra', stroke: '#c64449', labelColor: '#243d81', lineWidth: 4, lineStyle: 'dashed' as const }
+    const graph = { nodes, edges: [edge], appearance: { background: '#fefefe', gridColor: '#cccccc', showGrid: false } }
+    const saved = await repo.save({ revision: 0, graph })
+    assert.deepEqual((await repo.load()).graph, saved.graph)
+    assert.deepEqual(nodeSize(nodes[0]), { width: 192, height: 192 })
+    assert.deepEqual(edgePoints(nodes[0]!, nodes[1]!, edge)[0], { x: 216, y: 120 })
+    assert.ok(fitNodes(nodes, 1000, 700).zoom > 0)
+    for (const bad of [
+      { ...nodes[0], fill: 'red' }, { ...nodes[0], shape: 'hexagon' },
+      { ...nodes[0], width: 700 }, { ...nodes[0], height: -10 },
+    ]) assert.equal(topologySchema.safeParse({ ...graph, nodes: [bad, nodes[1]] }).success, false)
+    assert.equal(topologySchema.safeParse({ ...graph, edges: [{ ...edge, stroke: 'javascript:red' }] }).success, false)
+    assert.equal(topologySchema.safeParse({ ...graph, appearance: { gridColor: 'invalid' } }).success, false)
+  } finally { await rm(dir, { recursive: true, force: true }) }
 })
 
 test('HTTP map save/load validates JSON, rejects foreign origin and stale revision', async () => {
