@@ -197,6 +197,12 @@ Conexões sem lado escolhido acompanham a posição dos balões: a linha pode ch
 
 O histórico de quedas e retornos agora tem tabela com situação, horário de início, retorno e duração. O **Modo TV / tela cheia** mostra só o mapa da infraestrutura, sem cartões, barras ou ferramentas; use **Esc** ou o botão discreto **Sair do modo TV** para voltar ao painel. A rotação de setores continua funcionando quando configurada.
 
+## Versão 1.7.0 — Cartões como tela principal
+
+O painel abre em **Cartões**. O menu lateral retrátil alterna entre **Cartões** e **Mapa**; sua largura fica salva neste navegador. No celular, o menu vira uma navegação horizontal. Os cartões mostram status, métricas, últimas verificações e histórico recente, com busca por nome/IP/local, filtro por status e atualização manual. Clique em um cartão para abrir o histórico detalhado.
+
+O mapa mantém as edições locais ao alternar para Cartões; use **Salvar mapa** para persisti-las no servidor. O modo TV continua mostrando **somente o mapa**, mesmo se iniciado enquanto Cartões estiver aberto. Os quatro indicadores e a escolha de setor acompanham as duas visualizações fora da tela cheia.
+
 Persistência: `backend/storage/topology.json`; API: `GET/PUT /api/topology`. Limites: 600 balões e 2.000 conexões. O modelo aceita ciclos, mas rejeita ligações duplicadas, autorrelações e referências inválidas. O backend deve executar em um único processo por pasta de dados, como o restante da persistência JSON.
 
 ### Releases
