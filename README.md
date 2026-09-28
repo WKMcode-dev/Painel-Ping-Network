@@ -203,6 +203,10 @@ O painel abre em **Cartões**. O menu lateral retrátil alterna entre **Cartões
 
 O mapa mantém as edições locais ao alternar para Cartões; use **Salvar mapa** para persisti-las no servidor. O modo TV continua mostrando **somente o mapa**, mesmo se iniciado enquanto Cartões estiver aberto. Os quatro indicadores e a escolha de setor acompanham as duas visualizações fora da tela cheia.
 
+## Versão 1.7.1 — Modo TV acompanha a seção ativa
+
+O modo TV em tela cheia abre **Cartões** quando a seção Cartões estiver ativa e abre **Mapa** quando a seção Mapa estiver ativa. O menu, as barras e os quatro indicadores ficam fora da apresentação, e a rotação de setores continua funcionando em ambas. Saia com **Esc** ou **Sair do modo TV** para voltar à mesma seção. Os cartões da TV exibem os dados atualizados continuamente, sem abrir janelas de edição.
+
 Persistência: `backend/storage/topology.json`; API: `GET/PUT /api/topology`. Limites: 600 balões e 2.000 conexões. O modelo aceita ciclos, mas rejeita ligações duplicadas, autorrelações e referências inválidas. O backend deve executar em um único processo por pasta de dados, como o restante da persistência JSON.
 
 ### Releases

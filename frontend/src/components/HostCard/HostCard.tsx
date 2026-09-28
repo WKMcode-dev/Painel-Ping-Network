@@ -8,13 +8,14 @@ import styles from './HostCard.module.css'
 interface HostCardProps {
   host: HostSnapshot
   onSelect: (host: HostSnapshot) => void
+  readOnly?: boolean
 }
 
-export function HostCard({ host, onSelect }: HostCardProps) {
+export function HostCard({ host, onSelect, readOnly = false }: HostCardProps) {
   const isOffline = host.status === 'offline'
 
   return (
-    <button className={`${styles.card} ${styles[host.status]}`} onClick={() => onSelect(host)} type="button">
+    <button className={`${styles.card} ${styles[host.status]}`} onClick={() => onSelect(host)} type="button" disabled={readOnly}>
       <span className={styles.accent} aria-hidden="true" />
       <span className={styles.header}>
         <span className={styles.deviceIcon}><Network size={20} strokeWidth={1.7} /></span>
@@ -38,7 +39,7 @@ export function HostCard({ host, onSelect }: HostCardProps) {
       </span>
       <span className={styles.footer}>
         <span><Activity size={13} /> Última verificação {formatDateTime(host.lastCheckedAt)}</span>
-        <span>Ver detalhes →</span>
+        {!readOnly && <span>Ver detalhes →</span>}
       </span>
     </button>
   )

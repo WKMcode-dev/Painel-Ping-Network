@@ -17,4 +17,9 @@
 .tv .summary, .tv .notice { display: none; }
 .tvBar { margin: 0; }
 .tv .tvBar { display: none; }
+.cards[data-tv=true] { min-height: 100dvh; padding: clamp(1rem, 2vw, 2rem); overflow-y: auto; background: var(--background); }
+.cards:fullscreen { width: 100vw; height: 100dvh; }
+.tvExitBar { position: sticky; z-index: 5; top: 0; display: flex; justify-content: flex-end; margin-bottom: .75rem; }
+.cards[data-tv=true] .exitTv { padding: .6rem .8rem; border: 1px solid var(--border); border-radius: .6rem; color: var(--text); background: var(--surface); opacity: .25; cursor: pointer; }
+.cards[data-tv=true] .exitTv:hover, .cards[data-tv=true] .exitTv:focus-visible { opacity: 1; }
 @media (max-width: 720px) { .workspace, .workspace[data-collapsed=true] { display: block; } }

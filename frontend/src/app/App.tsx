@@ -1,6 +1,5 @@
 import { Activity, Gauge, Server, ShieldAlert } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { flushSync } from 'react-dom'
 import { DashboardHeader } from '../components/DashboardHeader/DashboardHeader'
 import { HostDetails } from '../components/HostDetails/HostDetails'
 import { NetworkMap } from '../components/NetworkMap/NetworkMap'
@@ -43,10 +42,11 @@ export default function App() {
   }, [])
   const toggleTv = async () => {
     if (tv) { setTv(false); if (document.fullscreenElement) await document.exitFullscreen(); return }
-    // Mount the map before requesting fullscreen, while this click retains user activation.
-    flushSync(() => { setMapVisited(true); setTv(true) })
-    try { await document.getElementById('infrastructure-map')?.requestFullscreen() }
-    catch { /* The map-only TV layout still works when fullscreen is unavailable. */ }
+    // Enter fullscreen on the active section; keep that section mounted while presenting.
+    const target = document.getElementById(view === 'cards' ? 'monitor-cards' : 'infrastructure-map')
+    setTv(true)
+    try { await target?.requestFullscreen() }
+    catch { /* The section-only TV layout remains available without browser fullscreen. */ }
   }
   const [group, setGroup] = useState('')
   const groups = useMemo(() => [...new Set(snapshot.hosts.filter(h => !panel.preferences.hidden.includes(h.id)).map(h => h.group))].sort(), [snapshot.hosts, panel.preferences.hidden])
@@ -87,12 +87,13 @@ export default function App() {
           {panel.preferences.sound && <button onClick={() => void panel.enableAudio()}>{panel.audioReady ? 'Áudio ativado' : 'Ativar áudio'}</button>}
           {panel.alerts.length > 0 && <div role="status">{panel.alerts.map((message, i) => <p key={i}>{message}</p>)}<button onClick={panel.clearAlerts}>Dispensar avisos</button></div>}
         </div>}
-        {!tv && view === 'cards' && <section aria-label="Cartões dos dispositivos">
-          <Toolbar query={query} filter={filter} total={cardHosts.length} onQueryChange={setQuery} onFilterChange={setFilter} onRefresh={() => void refreshCards()} refreshing={refreshing} canRefresh={connection === 'live'} />
-          {refreshError && <p role="alert" className={styles.notice}>{refreshError}</p>}
-          <HostGrid hosts={cardHosts} onSelect={host => setSelectedId(host.id)} />
+        {view === 'cards' && <section id="monitor-cards" className={styles.cards} data-tv={tv} aria-label="Cartões dos dispositivos">
+          {!tv && <Toolbar query={query} filter={filter} total={cardHosts.length} onQueryChange={setQuery} onFilterChange={setFilter} onRefresh={() => void refreshCards()} refreshing={refreshing} canRefresh={connection === 'live'} />}
+          {!tv && refreshError && <p role="alert" className={styles.notice}>{refreshError}</p>}
+          {tv && <div className={styles.tvExitBar}><button type="button" className={styles.exitTv} onClick={() => void toggleTv()}>Sair do modo TV</button></div>}
+          <HostGrid hosts={cardHosts} onSelect={host => setSelectedId(host.id)} readOnly={tv} />
         </section>}
-        {mapVisited && <div hidden={!tv && view !== 'map'}><NetworkMap hosts={currentHosts} visibleIds={visibleHosts.map(h => h.id)} ready={Boolean(snapshot.generatedAt)} tv={tv} onDetails={setSelectedId} onDevices={() => setDevicesOpen(true)} onExitTv={() => void toggleTv()} /></div>}
+        {mapVisited && <div hidden={view !== 'map'}><NetworkMap hosts={currentHosts} visibleIds={visibleHosts.map(h => h.id)} ready={Boolean(snapshot.generatedAt)} tv={tv} onDetails={setSelectedId} onDevices={() => setDevicesOpen(true)} onExitTv={() => void toggleTv()} /></div>}
       </main>
       </div>
 
