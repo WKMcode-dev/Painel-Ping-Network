@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { dirname } from 'node:path'
+import { dataFile } from '../storage/data-directory.js'
 import { z } from 'zod'
 import { monitoredHosts } from '../config/hosts.js'
 import { env } from '../config/env.js'
@@ -20,12 +20,14 @@ export const configSchema = z.object({
 })
 export type MonitorConfig = z.infer<typeof configSchema>
 export class ConfigRepository {
-  constructor(private readonly path = resolve(dirname(fileURLToPath(import.meta.url)), '../../storage/config.json')) {}
+  constructor(private readonly path = dataFile('config.json')) {}
   async load(): Promise<MonitorConfig> {
     try { return configSchema.parse(JSON.parse(await readFile(this.path, 'utf8'))) }
     catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-      return configSchema.parse({ hosts: monitoredHosts, failureThreshold: env.FAILURE_THRESHOLD, recoveryThreshold: 1 })
+      const initial = configSchema.parse({ hosts: monitoredHosts, failureThreshold: env.FAILURE_THRESHOLD, recoveryThreshold: 1 })
+      await this.save(initial)
+      return initial
     }
   }
   async save(config: MonitorConfig): Promise<void> {

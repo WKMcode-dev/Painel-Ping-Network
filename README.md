@@ -2,6 +2,24 @@
 
 Painel web para acompanhar a disponibilidade de dispositivos de rede por ICMP. O backend executa as verificações, reconhece quedas e retornos e envia os dados ao frontend em tempo real por WebSocket.
 
+## Correção de persistência — v1.9.1
+
+Os dispositivos, o mapa salvo e o histórico agora usam uma pasta fixa por usuário do sistema, independente da pasta de cada release. No Windows: `%LOCALAPPDATA%\PainelPing\data`. Em Linux: `$XDG_DATA_HOME/painel-ping/data`, ou `~/.local/share/painel-ping/data`. O terminal mostra o caminho efetivamente usado.
+
+Na primeira atualização, **pare a versão anterior com Ctrl + C e mantenha sua pasta antiga**. Extraia a v1.9.1 perto das pastas das versões anteriores e execute `npm install` e `npm run dev`. O backend procura `backend/storage` no projeto atual e nas pastas de versões próximas, valida e migra um conjunto único de dados. A cópia é preparada antes de ativar o armazenamento; os originais ficam intactos, e um backup adicional é guardado em `data/backups/before-migration`.
+
+Se encontrar origens diferentes, o servidor para e lista os caminhos, sem escolher ou misturar cadastros. Defina uma vez no `.env` da nova versão:
+
+```dotenv
+LEGACY_DATA_DIR=C:\Users\SeuUsuario\Desktop\Painel-Ping-v1.9.0\backend\storage
+```
+
+Use a versão que contém seu cadastro e mapa completos. Se a pasta antiga estiver em outro local, também use essa variável **antes de iniciar pela primeira vez**. Dados já existentes na pasta fixa têm prioridade e nunca são substituídos pela migração. Depois que a migração funcionar, você pode remover `LEGACY_DATA_DIR` do `.env`.
+
+As próximas releases reutilizam a pasta fixa automaticamente. Não apague essa pasta; inclua-a no backup da empresa. Para um serviço com outro usuário do Windows/Linux, use `DATA_DIR` com um caminho absoluto fixo e mantenha a mesma configuração em todas as releases. Uma trava impede duas versões de escreverem no mesmo armazenamento ao mesmo tempo.
+
+Tema e preferências de TV/alertas continuam no navegador e no endereço usado para abrir o painel. Alterações do mapa ainda precisam de **Salvar mapa**. A migração recupera arquivos que ainda existem; não recupera arquivos antigos apagados sem backup.
+
 ## Novidades da v1.9.0
 
 Mouse seleciona por área e move grupos; Hand move a câmera. “Selecionar árvore” inclui os descendentes, e o arraste leva os pontos internos das conexões junto, preservando o desenho. Shift + clique amplia a seleção; Ctrl + A/C/V/D seleciona tudo, copia, cola e duplica. As setas movem um passo da grade (Shift: quatro passos).
@@ -62,7 +80,7 @@ Abra `http://localhost:5173`. O backend usa `http://localhost:3333` e o Vite enc
 
 ## Cadastrar os endereços reais
 
-Use **Dispositivos** no cabeçalho para adicionar, consultar, editar, pausar e remover hosts, organizar setores, escolher os dispositivos que aparecem na TV e agendar manutenção. Em **Configurações**, ajuste as regras de monitoramento, alertas, tema e cores. Os dados ficam em `backend/storage/config.json`, fora do Git. Faça backup da pasta `backend/storage` ao atualizar.
+Use **Dispositivos** no cabeçalho para adicionar, consultar, editar, pausar e remover hosts, organizar setores, escolher os dispositivos que aparecem na TV e agendar manutenção. Em **Configurações**, ajuste as regras de monitoramento, alertas, tema e cores. Os dados ficam na pasta fixa do usuário (no Windows, `%LOCALAPPDATA%\PainelPing\data`), fora do Git. Faça backup dessa pasta; `backend/storage` é somente a origem de migração das versões até v1.9.0.
 
 O arquivo `backend/src/config/hosts.ts` fornece somente os exemplos iniciais quando ainda não existe configuração salva. Cada item possui:
 
@@ -169,7 +187,7 @@ Paleta inspirada no Notion em claro/escuro. Em Configurações → Cores, escolh
 
 A API de configuração (`GET/PUT /api/monitor/config`) usa JSON validado e gravação por arquivo temporário + renomeação. Alterações de cadastro aguardam sondagens em andamento. Não existe login/perfil de administrador nesta versão: instale em rede confiável com acesso controlado; quem alcança o backend pode administrar o cadastro. Para frontend em outra origem, configure `ALLOWED_ORIGINS`.
 
-Atualização: preserve `backend/storage` e `.env`, atualize os arquivos do projeto, execute `npm install` e reinicie com `npm run dev` (ou `npm run build` e `npm start` em produção). Preferências de aparência, TV e alertas são locais ao navegador e ao endereço de acesso.
+Atualização a partir de v1.9.1: pare a versão anterior, preserve `.env` se personalizado, extraia a nova release, execute `npm install` e reinicie com `npm run dev` (ou `npm run build` e `npm start` em produção). A pasta fixa de dados é reutilizada automaticamente. Para migrar versões até v1.9.0, siga a seção de persistência acima. Preferências de aparência, TV e alertas são locais ao navegador e ao endereço de acesso.
 
 ### Verificação
 
@@ -221,7 +239,7 @@ Inspirado em diagramas de rede com localidades circulares, nuvens WAN, equipamen
 
 Selecione uma ligação para editar sua **cor**, cor do rótulo, espessura e traço contínuo, tracejado ou pontilhado. As faces de ligação e os pontos de dobra continuam editáveis. Use **Fundo e grade** na barra do mapa para personalizar o fundo, a grade ou ocultá-la. **Salvar mapa** persiste todos esses ajustes para outras telas; mapas antigos continuam com o estilo padrão. As cores e relações indicam a organização desenhada pelo operador, e não a descoberta automática de topologia física via ICMP.
 
-Persistência: `backend/storage/topology.json`; API: `GET/PUT /api/topology`. Limites: 600 balões e 2.000 conexões. O modelo aceita ciclos, mas rejeita ligações duplicadas, autorrelações e referências inválidas. O backend deve executar em um único processo por pasta de dados, como o restante da persistência JSON.
+Persistência: `topology.json` na pasta fixa de dados; API: `GET/PUT /api/topology`. Limites: 600 balões e 2.000 conexões. O modelo aceita ciclos, mas rejeita ligações duplicadas, autorrelações e referências inválidas. O backend deve executar em um único processo por pasta de dados, como o restante da persistência JSON.
 
 ### Releases
 

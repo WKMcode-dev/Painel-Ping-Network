@@ -1,16 +1,15 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { dirname } from 'node:path'
+import { dataFile } from '../storage/data-directory.js'
 import { z } from 'zod'
 import { env } from '../config/env.js'
 import type { StatusEvent } from '../types/monitor.js'
 
-const eventSchema = z.object({
+export const eventSchema = z.object({
   id: z.string(), hostId: z.string(), type: z.enum(['down', 'recovery', 'interrupted']),
   timestamp: z.string().datetime(), durationMs: z.number().nonnegative().nullable(), message: z.string(),
 })
-const currentDirectory = dirname(fileURLToPath(import.meta.url))
-const storagePath = resolve(currentDirectory, '../../storage/status-history.json')
+const storagePath = dataFile('status-history.json')
 
 export class HistoryRepository {
   constructor(private readonly filePath = storagePath) {}

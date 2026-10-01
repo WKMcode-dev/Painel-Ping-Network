@@ -1,6 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { dirname } from 'node:path'
+import { dataFile } from '../storage/data-directory.js'
 import { z } from 'zod'
 
 const id = z.string().min(1).max(160)
@@ -39,7 +39,7 @@ export class TopologyConflict extends Error {}
 /** Single-process optimistic concurrency: stale editors cannot overwrite a newer map. */
 export class TopologyRepository {
   private queue: Promise<unknown> = Promise.resolve()
-  constructor(private readonly path = resolve(dirname(fileURLToPath(import.meta.url)), '../../storage/topology.json')) {}
+  constructor(private readonly path = dataFile('topology.json')) {}
   async load(): Promise<TopologyDocument> {
     try { return topologyDocumentSchema.parse(JSON.parse(await readFile(this.path, 'utf8'))) }
     catch (error) {
