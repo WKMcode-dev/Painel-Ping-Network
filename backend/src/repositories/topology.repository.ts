@@ -7,7 +7,9 @@ const id = z.string().min(1).max(160)
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Use uma cor hexadecimal #RRGGBB')
 export const topologySchema = z.object({
   nodes: z.array(z.object({
-    id, hostId: z.string().min(1).max(80).optional(), label: z.string().trim().min(1).max(100), subtitle: z.string().max(100).optional(), caption: z.string().max(100).optional(),
+    id, hostId: z.string().min(1).max(80).optional(), label: z.string().trim().min(1).max(1000), subtitle: z.string().max(2000).optional(), caption: z.string().max(2000).optional(),
+    textAlign: z.enum(['left', 'center', 'right']).optional(),
+    texts: z.array(z.object({ id, kind: z.enum(['title', 'subtitle', 'text']), text: z.string().max(4000), align: z.enum(['left', 'center', 'right']).optional() })).max(30).refine(texts => new Set(texts.map(t => t.id)).size === texts.length, 'IDs de texto duplicados').optional(),
     x: z.number().finite().min(-200000).max(200000), y: z.number().finite().min(-200000).max(200000),
     color: z.enum(['neutral', 'blue', 'green', 'orange', 'purple', 'pink']).default('neutral'),
     shape: z.enum(['rounded', 'rectangle', 'pill', 'ellipse', 'circle', 'cloud', 'diamond']).optional(),
@@ -16,6 +18,7 @@ export const topologySchema = z.object({
   })).max(600),
   edges: z.array(z.object({ id, source: id, target: id, label: z.string().max(80).default(''),
     sourceSide: z.enum(['top', 'right', 'bottom', 'left']).optional(), targetSide: z.enum(['top', 'right', 'bottom', 'left']).optional(),
+    sourceOffset: z.number().finite().min(.05).max(.95).optional(), targetOffset: z.number().finite().min(.05).max(.95).optional(),
     stroke: hexColor.optional(), labelColor: hexColor.optional(), lineWidth: z.number().int().min(1).max(8).optional(),
     lineStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
     bends: z.array(z.object({ x: z.number().finite().min(-200000).max(200000), y: z.number().finite().min(-200000).max(200000) })).max(24).optional(),
@@ -24,8 +27,7 @@ export const topologySchema = z.object({
 }).superRefine((graph, ctx) => {
   const ids = new Set(graph.nodes.map(n => n.id))
   const hosts = graph.nodes.flatMap(n => n.hostId ? [n.hostId] : [])
-  const pairs = graph.edges.map(e => JSON.stringify([e.source, e.target].sort()))
-  if (ids.size !== graph.nodes.length || new Set(hosts).size !== hosts.length || new Set(graph.edges.map(e => e.id)).size !== graph.edges.length || new Set(pairs).size !== pairs.length) {
+  if (ids.size !== graph.nodes.length || new Set(hosts).size !== hosts.length || new Set(graph.edges.map(e => e.id)).size !== graph.edges.length) {
     ctx.addIssue({ code: 'custom', message: 'Nós ou conexões duplicados' })
   }
   if (graph.edges.some(e => e.source === e.target || !ids.has(e.source) || !ids.has(e.target))) {

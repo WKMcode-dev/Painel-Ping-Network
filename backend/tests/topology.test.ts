@@ -36,7 +36,7 @@ test('map rejects dangling/duplicate/self edges, invalid coordinates and duplica
     { ...graph, nodes: [...graph.nodes, { ...graph.nodes.find(n => n.hostId)!, id: 'duplicate' }] },
     { ...graph, edges: [{ ...edge, target: 'missing' }] },
     { ...graph, edges: [{ ...edge, target: edge.source }] },
-    { ...graph, edges: [edge, { ...edge, id: 'other', source: edge.target, target: edge.source }] },
+    { ...graph, edges: [edge, { ...edge, source: edge.target, target: edge.source }] },
     { ...graph, nodes: graph.nodes.map(n => ({ ...n, x: Infinity })) },
     { ...graph, nodes: graph.nodes.map(n => ({ ...n, y: 200001 })) },
   ]) assert.equal(topologySchema.safeParse(bad).success, false)
@@ -67,11 +67,12 @@ test('inventory updates preserve custom coordinates and notes; remove orphan edg
   assert.deepEqual(reconcileGraph(next, [devices[0]!, { id: 'c', name: 'New host', group: 'TI' }]), next)
 })
 
-test('connecting supports cycles but rejects self, duplicate and missing nodes', () => {
+test('connecting supports cycles and parallel links but rejects self, duplicate IDs and missing nodes', () => {
   let graph = initialGraph(devices)
   graph = connectNodes(graph, 'host:a', 'host:b', 'custom')
   assert.equal(graph.edges.filter(e => e.id === 'custom').length, 1)
-  assert.equal(connectNodes(graph, 'host:b', 'host:a', 'duplicate'), graph)
+  assert.equal(connectNodes(graph, 'host:b', 'host:a', 'custom'), graph)
+  assert.equal(connectNodes(graph, 'host:b', 'host:a', 'parallel').edges.length, graph.edges.length + 1)
   assert.equal(connectNodes(graph, 'host:a', 'host:a', 'self'), graph)
   assert.equal(connectNodes(graph, 'host:a', 'missing', 'missing'), graph)
   assert.ok(topologySchema.safeParse(graph).success)
@@ -204,5 +205,90 @@ test('copy and duplicate preserve subtree geometry and generate independent temp
   assert.equal(graph.edges[0]!.bends![0]!.x, 240)
   assert.equal(fragment.edges[0]!.bends![0]!.x, 240)
   assert.equal(selectionFragment(graph, ['root']).edges.length, 0)
-  assert.equal(topologySchema.safeParse({ ...graph, nodes: [{ ...graph.nodes[0]!, caption: 'a'.repeat(101) }] }).success, false)
+  assert.equal(topologySchema.safeParse({ ...graph, nodes: [{ ...graph.nodes[0]!, caption: 'a'.repeat(2001) }] }).success, false)
+})
+
+test('multiple links use separate anchors and can form parallel vertical paths', async () => {
+  const { resolvedEdges, nextPortOffset } = await import('../../frontend/src/utils/topology.js')
+  let graph = { nodes: [{ id: 'a', label: 'A', x: 0, y: 0, color: 'blue' as const }, { id: 'b', label: 'B', x: 0, y: 240, color: 'blue' as const }], edges: [] as import('../../frontend/src/types/topology.js').MapEdge[] }
+  graph = connectNodes(graph, 'a', 'b', 'one', 'bottom', 'top')
+  graph = connectNodes(graph, 'a', 'b', 'two', 'bottom', 'top')
+  const routed = resolvedEdges(graph)
+  assert.equal(routed[0]!.sourceOffset, 1 / 3)
+  assert.equal(routed[1]!.sourceOffset, 2 / 3)
+  assert.ok(topologySchema.safeParse(graph).success)
+  for (const edge of routed) {
+    const points = edgePoints(graph.nodes[0]!, graph.nodes[1]!, edge)
+    assert.equal(points[0]!.x, points[1]!.x)
+    assert.equal(points[0]!.y, 96)
+    assert.equal(points[1]!.y, 240)
+  }
+  const offset = nextPortOffset(routed, 'a', 'bottom')
+  assert.ok(routed.every(e => Math.abs(e.sourceOffset! - offset) > .01))
+  assert.equal(graph.edges[0]!.sourceOffset, undefined, 'routing must not turn automatic anchors into saved manual values')
+})
+
+test('manual anchor positions stay fixed, automatic anchors avoid them, and bends still work', async () => {
+  const { resolvedEdges, translateSelection } = await import('../../frontend/src/utils/topology.js')
+  const nodes = [{ id: 'a', label: 'A', x: 0, y: 0, color: 'blue' as const }, { id: 'b', label: 'B', x: 0, y: 240, color: 'blue' as const }]
+  const graph = { nodes, edges: [
+    { id: 'one', source: 'a', target: 'b', label: '', sourceSide: 'bottom' as const, targetSide: 'top' as const, sourceOffset: .5, targetOffset: .5, bends: [{ x: 120, y: 168 }] },
+    { id: 'two', source: 'a', target: 'b', label: '', sourceSide: 'bottom' as const, targetSide: 'top' as const },
+  ] }
+  const routed = resolvedEdges(graph)
+  assert.equal(routed[0]!.sourceOffset, .5)
+  assert.notEqual(routed[1]!.sourceOffset, .5)
+  assert.ok(!edgeRoute(nodes[0]!, nodes[1]!, routed[0]!).path.includes('NaN'))
+  const moved = translateSelection(graph, ['a', 'b'], 48, 24), after = resolvedEdges(moved)
+  for (let i = 0; i < routed.length; i++) assert.deepEqual(edgePoints(moved.nodes[0]!, moved.nodes[1]!, after[i]!), edgePoints(nodes[0]!, nodes[1]!, routed[i]!).map(p => ({ x: p.x + 48, y: p.y + 24 })))
+})
+
+test('anchors are allocated independently on all four sides including automatic facing', async () => {
+  const { resolvedEdges } = await import('../../frontend/src/utils/topology.js')
+  const root = { id: 'root', label: 'Root', x: 0, y: 0, color: 'blue' as const }
+  const nodes = [root, ...(['top', 'right', 'bottom', 'left'] as const).flatMap((side, index) => [0, 1].map(i => ({ ...root, id: `${side}-${i}`, x: index === 1 ? 500 : index === 3 ? -500 : i * 24, y: index === 0 ? -500 : index === 2 ? 500 : i * 24 })))]
+  const edges = nodes.slice(1).map(n => ({ id: n.id, source: 'root', target: n.id, label: '' }))
+  const routed = resolvedEdges({ nodes, edges })
+  for (const side of ['top', 'right', 'bottom', 'left']) {
+    const members = routed.filter(e => e.sourceSide === side)
+    assert.equal(members.length, 2)
+    assert.equal(new Set(members.map(e => e.sourceOffset)).size, 2)
+  }
+})
+
+test('multiline blocks, alignment and anchors persist across reload without losing legacy fields', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ping-texts-'))
+  try {
+    const graph = initialGraph(devices)
+    graph.nodes[0] = { ...graph.nodes[0]!, label: 'Minha rede\nPrincipal', subtitle: 'Linha 1\nLinha 2', caption: '', textAlign: 'right', texts: [
+      { id: 'title', kind: 'title', text: 'Título adicional\nOutra linha', align: 'center' }, { id: 'notes', kind: 'text', text: 'Observações\nEndereços de rede' },
+    ] } as import('../../frontend/src/types/topology.js').MapNode
+    graph.edges[0]!.sourceOffset = .25
+    const repository = new TopologyRepository(join(dir, 'map.json'))
+    const saved = await repository.save({ revision: 0, graph })
+    assert.deepEqual(await new TopologyRepository(join(dir, 'map.json')).load(), saved)
+    assert.ok(nodeSize(graph.nodes[0]!).height > 96)
+    assert.equal(nodeSize({ ...graph.nodes[0]!, height: 120 }).height, 120)
+    const badText = { ...graph.nodes[0]!, texts: [{ id: 'x', kind: 'text', text: 'a'.repeat(4001) }] }
+    assert.equal(topologySchema.safeParse({ ...graph, nodes: [badText] }).success, false)
+    assert.equal(topologySchema.safeParse({ ...graph, edges: [{ ...graph.edges[0]!, sourceOffset: 1.1 }] }).success, false)
+    assert.equal(topologySchema.safeParse({ ...graph, nodes: [{ ...graph.nodes[0]!, textAlign: 'justify' }] }).success, false)
+    const duplicateBlocks = [{ id: 'same', kind: 'text', text: 'A' }, { id: 'same', kind: 'text', text: 'B' }]
+    assert.equal(topologySchema.safeParse({ ...graph, nodes: [{ ...graph.nodes[0]!, texts: duplicateBlocks }] }).success, false)
+  } finally { await rm(dir, { recursive: true, force: true }) }
+})
+
+test('distributed anchors follow ellipse and cloud contours rather than their rectangular bounds', async () => {
+  const { anchor } = await import('../../frontend/src/utils/topology.js')
+  const node = { id: 'shape', label: 'Shape', x: 48, y: 24, color: 'blue' as const, width: 216, height: 120 }
+  for (const side of ['top', 'right', 'bottom', 'left'] as const) for (const offset of [.1, .25, .5, .75, .9]) {
+    const ellipse = anchor({ ...node, shape: 'ellipse' }, side, offset)
+    const normalized = ((ellipse.x - (48 + 108)) / 108) ** 2 + ((ellipse.y - (24 + 60)) / 60) ** 2
+    assert.ok(Math.abs(normalized - 1) < .000001)
+    const cloud = anchor({ ...node, shape: 'cloud' }, side, offset)
+    assert.ok(Number.isFinite(cloud.x) && Number.isFinite(cloud.y))
+    assert.ok(cloud.x >= node.x - 1 && cloud.x <= node.x + 217)
+    assert.ok(cloud.y >= node.y - 1 && cloud.y <= node.y + 121)
+  }
+  assert.ok(anchor({ ...node, shape: 'cloud' }, 'top', .25).y > node.y + 5)
 })

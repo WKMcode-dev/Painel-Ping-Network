@@ -2,6 +2,16 @@
 
 Painel web para acompanhar a disponibilidade de dispositivos de rede por ICMP. O backend executa as verificações, reconhece quedas e retornos e envia os dados ao frontend em tempo real por WebSocket.
 
+## Novidades da v1.9.2
+
+- Blocos adicionais de título, subtítulo ou texto dentro de cada balão, com edição, remoção e ordenação. Campos multilinha aceitam Shift + Enter (Enter também cria uma nova linha). Use Aplicar textos/blocos e depois Salvar mapa.
+- Alinhamento à esquerda, centro ou direita para o balão e, opcionalmente, para cada bloco adicional. Os campos secundários vazios continuam ocultos. Até 30 blocos por balão e 4.000 caracteres por bloco; o título principal aceita até 1.000 caracteres, subtítulo/texto inferior até 2.000.
+- Pontos de ligação distribuídos na borda de cada elemento. O botão + se desloca para um espaço livre; cada ligação permite ajustar lado e posição de entrada/saída no painel. Mais de uma ligação entre os mesmos balões é permitida, com cores e dobras próprias.
+- Para linhas verticais paralelas, alinhe os balões horizontalmente, escolha saída inferior/entrada superior e ajuste as posições correspondentes. A distribuição automática separa os pontos; ela não redistribui os seus pontos de dobra.
+- Nuvem com contorno SVG de vários lobos. A altura cresce com blocos e textos multilinha até 576 px; uma altura manual tem prioridade. Se houver mais conteúdo, o balão permite rolagem interna.
+
+A v1.9.2 mantém a pasta fixa de dados e a migração introduzidas na v1.9.1. Mapas existentes abrem sem exigir novos campos; salve depois de aplicar suas alterações. A API aceita documentos JSON de até 2 MB; versões anteriores não conhecem os novos campos, então evite reabrir e salvar o mesmo mapa com uma versão antiga.
+
 ## Correção de persistência — v1.9.1
 
 Os dispositivos, o mapa salvo e o histórico agora usam uma pasta fixa por usuário do sistema, independente da pasta de cada release. No Windows: `%LOCALAPPDATA%\PainelPing\data`. Em Linux: `$XDG_DATA_HOME/painel-ping/data`, ou `~/.local/share/painel-ping/data`. O terminal mostra o caminho efetivamente usado.
@@ -239,7 +249,7 @@ Inspirado em diagramas de rede com localidades circulares, nuvens WAN, equipamen
 
 Selecione uma ligação para editar sua **cor**, cor do rótulo, espessura e traço contínuo, tracejado ou pontilhado. As faces de ligação e os pontos de dobra continuam editáveis. Use **Fundo e grade** na barra do mapa para personalizar o fundo, a grade ou ocultá-la. **Salvar mapa** persiste todos esses ajustes para outras telas; mapas antigos continuam com o estilo padrão. As cores e relações indicam a organização desenhada pelo operador, e não a descoberta automática de topologia física via ICMP.
 
-Persistência: `topology.json` na pasta fixa de dados; API: `GET/PUT /api/topology`. Limites: 600 balões e 2.000 conexões. O modelo aceita ciclos, mas rejeita ligações duplicadas, autorrelações e referências inválidas. O backend deve executar em um único processo por pasta de dados, como o restante da persistência JSON.
+Persistência: `topology.json` na pasta fixa de dados; API: `GET/PUT /api/topology`. Limites: 600 balões e 2.000 conexões. O modelo aceita ciclos, mas rejeita IDs duplicados, autorrelações e referências inválidas (ligações paralelas com IDs distintos são permitidas). O backend deve executar em um único processo por pasta de dados, como o restante da persistência JSON.
 
 ### Releases
 

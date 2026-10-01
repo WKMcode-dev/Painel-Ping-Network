@@ -8,7 +8,15 @@ export function nodeSize(node: MapNode) {
   const defaultSize = node.shape === 'circle' || node.shape === 'diamond' ? { width: 144, height: 144 }
     : node.shape === 'ellipse' || node.shape === 'cloud' ? { width: 216, height: 120 }
       : node.shape === 'pill' ? { width: 216, height: 72 } : { width: NODE_WIDTH, height: NODE_HEIGHT }
-  return { width: node.width ?? defaultSize.width, height: node.height ?? defaultSize.height }
+  const width = node.width ?? defaultSize.width
+  const extra = node.texts?.filter(t => t.text) ?? []
+  const multiline = [node.label, node.subtitle, node.caption].some(t => t?.includes('\n'))
+  const columns = Math.max(8, Math.floor((width - (node.shape === 'cloud' ? 60 : 36)) / 8))
+  const lines = (text: string) => text.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / columns)), 0)
+  const contentHeight = 40 + lines(node.label) * 20 + lines(node.subtitle ?? 'Tópico de organização') * 17 + lines(node.caption ?? 'Tópico') * 16
+    + extra.reduce((height, text) => height + lines(text.text) * (text.kind === 'title' ? 20 : 18) + 8, 0)
+  const automaticHeight = extra.length || multiline ? Math.min(576, Math.max(defaultSize.height, Math.ceil(contentHeight / GRID) * GRID)) : defaultSize.height
+  return { width, height: node.height ?? automaticHeight }
 }
 
 /** Device names/status remain owned by monitoring, not by this visual document. */
@@ -61,18 +69,58 @@ export function fitNodes(nodes: MapNode[], width: number, height: number): Viewp
   const zoom = Math.max(.15, Math.min(1.2, (width - 100) / w, (height - 100) / h))
   return { x: (width - w * zoom) / 2 - minX * zoom, y: (height - h * zoom) / 2 - minY * zoom, zoom }
 }
-export function connectNodes(graph: Graph, source: string, target: string, id: string, sourceSide?: MapSide, targetSide?: MapSide): Graph {
-  if (graph.edges.length >= 2000 || source === target || !graph.nodes.some(n => n.id === source) || !graph.nodes.some(n => n.id === target)
-    || graph.edges.some(e => (e.source === source && e.target === target) || (e.target === source && e.source === target))) return graph
-  return { ...graph, edges: [...graph.edges, { id, source, target, label: '', ...(sourceSide && { sourceSide }), ...(targetSide && { targetSide }) }] }
+export function connectNodes(graph: Graph, source: string, target: string, id: string, sourceSide?: MapSide, targetSide?: MapSide, sourceOffset?: number, targetOffset?: number): Graph {
+  if (graph.edges.length >= 2000 || graph.edges.some(e => e.id === id) || source === target || !graph.nodes.some(n => n.id === source) || !graph.nodes.some(n => n.id === target)) return graph
+  return { ...graph, edges: [...graph.edges, { id, source, target, label: '', ...(sourceSide && { sourceSide }), ...(targetSide && { targetSide }), ...(sourceOffset !== undefined && { sourceOffset }), ...(targetOffset !== undefined && { targetOffset }) }] }
 }
-export function anchor(node: MapNode, side: MapSide): MapPoint {
+export const CLOUD_PATH = 'M 42 112 C 18 112 0 97 0 78 C 0 60 12 44 31 43 C 28 21 49 10 69 16 C 79 -5 111 -5 124 14 C 145 4 168 16 173 35 C 197 32 216 48 216 69 C 216 92 203 106 181 108 C 171 123 147 122 132 113 C 111 123 83 122 69 113 C 61 119 48 119 42 112 Z'
+// Sample the shared SVG contour once, so cloud connection points follow its silhouette.
+const cloudContour: MapPoint[] = (() => {
+  const tokens = CLOUD_PATH.match(/[MCZ]|-?\d+(?:\.\d+)?/g)!, points: MapPoint[] = []
+  let cursor = { x: 0, y: 0 }, i = 0
+  while (i < tokens.length) {
+    const command = tokens[i++]
+    if (command === 'M') { cursor = { x: Number(tokens[i++]), y: Number(tokens[i++]) }; points.push(cursor) }
+    else if (command === 'C') {
+      const controls = Array.from({ length: 6 }, () => Number(tokens[i++]))
+      const start = cursor
+      for (let step = 1; step <= 32; step++) {
+        const t = step / 32, u = 1 - t
+        points.push({ x: u ** 3 * start.x + 3 * u * u * t * controls[0]! + 3 * u * t * t * controls[2]! + t ** 3 * controls[4]!,
+          y: u ** 3 * start.y + 3 * u * u * t * controls[1]! + 3 * u * t * t * controls[3]! + t ** 3 * controls[5]! })
+      }
+      cursor = points.at(-1)!
+    } else if (command === 'Z') points.push(points[0]!)
+  }
+  return points
+})()
+export function anchor(node: MapNode, side: MapSide, offset = .5): MapPoint {
   const { width, height } = nodeSize(node)
+  const horizontal = side === 'top' || side === 'bottom'
+  if (node.shape === 'ellipse' || node.shape === 'circle') {
+    const factor = Math.sqrt(Math.max(0, 1 - (2 * offset - 1) ** 2))
+    return horizontal ? { x: node.x + width * offset, y: node.y + height / 2 * (side === 'top' ? 1 - factor : 1 + factor) }
+      : { x: node.x + width / 2 * (side === 'left' ? 1 - factor : 1 + factor), y: node.y + height * offset }
+  }
+  if (node.shape === 'cloud') {
+    const axis = horizontal ? 'x' : 'y', other = horizontal ? 'y' : 'x', coordinate = offset * (horizontal ? 216 : 120), hits: number[] = []
+    for (let i = 1; i < cloudContour.length; i++) {
+      const a = cloudContour[i - 1]!, b = cloudContour[i]!, span = b[axis] - a[axis]
+      if (!span) continue
+      const fraction = (coordinate - a[axis]) / span
+      if (fraction >= 0 && fraction <= 1) hits.push(a[other] + fraction * (b[other] - a[other]))
+    }
+    if (hits.length) {
+      const boundary = side === 'top' || side === 'left' ? Math.min(...hits) : Math.max(...hits)
+      return horizontal ? { x: node.x + width * offset, y: node.y + height * boundary / 120 }
+        : { x: node.x + width * boundary / 216, y: node.y + height * offset }
+    }
+  }
   switch (side) {
-    case 'top': return { x: node.x + width / 2, y: node.y }
-    case 'right': return { x: node.x + width, y: node.y + height / 2 }
-    case 'bottom': return { x: node.x + width / 2, y: node.y + height }
-    case 'left': return { x: node.x, y: node.y + height / 2 }
+    case 'top': return { x: node.x + width * offset, y: node.y }
+    case 'right': return { x: node.x + width, y: node.y + height * offset }
+    case 'bottom': return { x: node.x + width * offset, y: node.y + height }
+    case 'left': return { x: node.x, y: node.y + height * offset }
   }
 }
 /** Choose a facing surface using the direction to the next bend or node. */
@@ -82,17 +130,17 @@ export function facingSide(from: MapNode, toward: MapPoint): MapSide {
   const scaledX = Math.abs(dx) / width, scaledY = Math.abs(dy) / height
   return scaledX >= scaledY ? dx >= 0 ? 'right' : 'left' : dy >= 0 ? 'bottom' : 'top'
 }
-export function edgePoints(source: MapNode, target: MapNode, edge: Pick<MapEdge, 'bends' | 'sourceSide' | 'targetSide'>): MapPoint[] {
+export function edgePoints(source: MapNode, target: MapNode, edge: Pick<MapEdge, 'bends' | 'sourceSide' | 'targetSide' | 'sourceOffset' | 'targetOffset'>): MapPoint[] {
   const sourceSize = nodeSize(source), targetSize = nodeSize(target)
   const sourceCenter = { x: source.x + sourceSize.width / 2, y: source.y + sourceSize.height / 2 }
   const targetCenter = { x: target.x + targetSize.width / 2, y: target.y + targetSize.height / 2 }
   const bends = edge.bends ?? []
   const sourceSide = edge.sourceSide ?? facingSide(source, bends[0] ?? targetCenter)
   const targetSide = edge.targetSide ?? facingSide(target, bends.at(-1) ?? sourceCenter)
-  return [anchor(source, sourceSide), ...bends, anchor(target, targetSide)]
+  return [anchor(source, sourceSide, edge.sourceOffset), ...bends, anchor(target, targetSide, edge.targetOffset)]
 }
 /** Segments are straight. Only explicitly inserted corners get a small radius. */
-export function edgeRoute(source: MapNode, target: MapNode, edge: Pick<MapEdge, 'bends' | 'sourceSide' | 'targetSide'>) {
+export function edgeRoute(source: MapNode, target: MapNode, edge: Pick<MapEdge, 'bends' | 'sourceSide' | 'targetSide' | 'sourceOffset' | 'targetOffset'>) {
   const points = edgePoints(source, target, edge)
   let path = `M ${points[0]!.x} ${points[0]!.y}`
   for (let i = 1; i < points.length - 1; i++) {
@@ -120,10 +168,10 @@ export function edgeRoute(source: MapNode, target: MapNode, edge: Pick<MapEdge, 
 }
 export function edgeCurve(source: MapNode, target: MapNode) { return edgeRoute(source, target, { bends: [] }) }
 
-export function insertBend(edge: MapEdge, source: MapNode, target: MapNode, raw: MapPoint): MapEdge {
+export function insertBend(edge: MapEdge, source: MapNode, target: MapNode, raw: MapPoint, geometry: Pick<MapEdge, 'bends' | 'sourceSide' | 'targetSide' | 'sourceOffset' | 'targetOffset'> = edge): MapEdge {
   if ((edge.bends?.length ?? 0) >= 24) return edge
   const point = snapPoint(raw)
-  const points = edgePoints(source, target, edge)
+  const points = edgePoints(source, target, geometry)
   let segment = 0, distance = Infinity
   for (let i = 0; i < points.length - 1; i++) {
     const a = points[i]!, b = points[i + 1]!
@@ -166,4 +214,61 @@ export function branchSelection(graph: Graph, roots: string[]): string[] {
   const ids = new Set(roots)
   for (let changed = true; changed;) { changed = false; for (const edge of graph.edges) if (ids.has(edge.source) && !ids.has(edge.target)) { ids.add(edge.target); changed = true } }
   return [...ids]
+}
+
+/** Allocate separate anchors on each side; manual offsets stay exactly where chosen. */
+export function resolvedEdges(graph: Graph): MapEdge[] {
+  const nodes = new Map(graph.nodes.map(n => [n.id, n]))
+  const endpoints = new Map<string, { edge: MapEdge; end: 'source' | 'target'; side: MapSide; order: number; offset?: number }[]>()
+  for (const edge of graph.edges) {
+    const source = nodes.get(edge.source), target = nodes.get(edge.target)
+    if (!source || !target) continue
+    for (const end of ['source', 'target'] as const) {
+      const node = end === 'source' ? source : target, other = end === 'source' ? target : source
+      const size = nodeSize(other)
+      const toward = (end === 'source' ? edge.bends?.[0] : edge.bends?.at(-1)) ?? { x: other.x + size.width / 2, y: other.y + size.height / 2 }
+      const side = (end === 'source' ? edge.sourceSide : edge.targetSide) ?? facingSide(node, toward)
+      const key = `${node.id}:${side}`, members = endpoints.get(key) ?? []
+      members.push({ edge, end, side, order: side === 'top' || side === 'bottom' ? toward.x : toward.y, offset: end === 'source' ? edge.sourceOffset : edge.targetOffset })
+      endpoints.set(key, members)
+    }
+  }
+  const copies = new Map(graph.edges.map(e => [e.id, { ...e }]))
+  for (const members of endpoints.values()) {
+    members.sort((a, b) => a.order - b.order || a.edge.id.localeCompare(b.edge.id))
+    const reserved = members.flatMap(m => m.offset === undefined ? [] : [m.offset])
+    const automatic = members.filter(m => m.offset === undefined)
+    const positions = automatic.map((_, i) => (i + 1) / (automatic.length + 1)).map(position => {
+      if (reserved.some(p => Math.abs(p - position) < .025)) position = availablePortOffset(reserved)
+      reserved.push(position); return position
+    }).sort((a, b) => a - b)
+    let index = 0
+    for (const member of members) {
+      const copy = copies.get(member.edge.id)!
+      copy[member.end === 'source' ? 'sourceSide' : 'targetSide'] = member.side
+      copy[member.end === 'source' ? 'sourceOffset' : 'targetOffset'] = member.offset ?? positions[index++]!
+    }
+  }
+  return [...copies.values()]
+}
+export function availablePortOffset(used: number[]): number {
+  const points = [0, ...used, 1].sort((a, b) => a - b)
+  let best = .5, gap = -1
+  for (let i = 1; i < points.length; i++) if (points[i]! - points[i - 1]! > gap) { gap = points[i]! - points[i - 1]!; best = (points[i]! + points[i - 1]!) / 2 }
+  return Math.max(.05, Math.min(.95, best))
+}
+export function nextPortOffset(edges: MapEdge[], nodeId: string, side: MapSide): number {
+  return availablePortOffset(edges.flatMap(e => e.source === nodeId && e.sourceSide === side ? [e.sourceOffset ?? .5] : e.target === nodeId && e.targetSide === side ? [e.targetOffset ?? .5] : []))
+}
+
+/** Cache free slots once per graph rather than scanning every edge for every + button. */
+export function freePortOffsets(edges: MapEdge[]): Map<string, number> {
+  const used = new Map<string, number[]>()
+  for (const edge of edges) for (const end of ['source', 'target'] as const) {
+    const side = edge[end === 'source' ? 'sourceSide' : 'targetSide']
+    if (!side) continue
+    const key = `${edge[end]}:${side}`, positions = used.get(key) ?? []
+    positions.push(edge[end === 'source' ? 'sourceOffset' : 'targetOffset'] ?? .5); used.set(key, positions)
+  }
+  return new Map([...used].map(([key, positions]) => [key, availablePortOffset(positions)]))
 }

@@ -3,7 +3,7 @@ import { Network, Plus, Minus, Maximize, Undo2, Redo2, Save, MousePointer2, Link
 import type { HostSnapshot } from '../../types/monitor'
 import type { Graph, MapNode, MapSide, Viewport } from '../../types/topology'
 import { useTopology } from '../../hooks/useTopology'
-import { GRID, translateSelection, rectangleSelection, selectionFragment, cloneFragment, branchSelection, connectNodes, edgePoints, edgeRoute, fitNodes, initialGraph, insertBend, nodeSize, snap, snapPoint, uniqueId, worldPoint, zoomAt } from '../../utils/topology'
+import { GRID, CLOUD_PATH, anchor, resolvedEdges, freePortOffsets, translateSelection, rectangleSelection, selectionFragment, cloneFragment, branchSelection, connectNodes, edgePoints, edgeRoute, fitNodes, initialGraph, insertBend, nodeSize, snap, snapPoint, uniqueId, worldPoint, zoomAt } from '../../utils/topology'
 import { createDevice } from '../../services/monitor-api'
 import { formatLatency } from '../../utils/formatters'
 import { MapAppearance, MapInspector } from './MapInspector'
@@ -16,7 +16,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
   const [view, setView] = useState<Viewport>({ x: 50, y: 50, zoom: .8 })
   const [selected, setSelected] = useState<string[]>([])
   const [edgeId, setEdgeId] = useState<string | null>(null)
-  const [connecting, setConnecting] = useState<{ id: string; side?: MapSide } | null>(null)
+  const [connecting, setConnecting] = useState<{ id: string; side?: MapSide; offset?: number } | null>(null)
   const [tool, setTool] = useState<'select' | 'pan'>('select')
   const [locked, setLocked] = useState(false)
   const [preview, setPreview] = useState<Graph | null>(null)
@@ -36,9 +36,12 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
   const visibleSet = new Set(visibleIds)
   const nodes = graph?.nodes.filter(n => !n.hostId || visibleSet.has(n.hostId)) ?? []
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
-  const edges = graph?.edges.filter(e => nodeMap.has(e.source) && nodeMap.has(e.target)) ?? []
+  const routedEdges = useMemo(() => graph ? resolvedEdges(graph) : [], [graph])
+  const freePorts = useMemo(() => freePortOffsets(routedEdges), [routedEdges])
+  const freePort = (id: string, side: MapSide) => freePorts.get(`${id}:${side}`) ?? .5
+  const edges = routedEdges.filter(e => nodeMap.has(e.source) && nodeMap.has(e.target))
   const node = nodes.find(n => selected.length === 1 && selected[0] === n.id)
-  const edge = edges.find(e => e.id === edgeId)
+  const edge = graph?.edges.find(e => e.id === edgeId)
   const visibleKey = [...visibleIds].sort().join('|')
   const fit = () => {
     if (canvas.current) setView(fitNodes(nodes, canvas.current.clientWidth, canvas.current.clientHeight))
@@ -65,7 +68,10 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
     const element = canvas.current
     if (!element) return
     const wheel = (event: WheelEvent) => {
-      if ((event.target as Element).closest('aside,button,input,select,textarea')) return
+      const target = event.target as Element
+      if (target.closest('aside,button,input,select,textarea')) return
+      const text = target.closest('[data-map-text]')
+      if (text && text.scrollHeight > text.clientHeight) return
       event.preventDefault()
       const rect = element.getBoundingClientRect()
       setView(v => zoomAt(v, v.zoom * Math.exp(-event.deltaY * .0015), { x: event.clientX - rect.left, y: event.clientY - rect.top }))
@@ -122,7 +128,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
     event.stopPropagation()
     canvas.current?.focus({ preventScroll: true })
     if (connecting && id && editable && tool === 'select') {
-      editor.commit(connectNodes(editor.graph, connecting.id, id, uniqueId(), connecting.side)); setConnecting(null); return
+      editor.commit(connectNodes(editor.graph, connecting.id, id, uniqueId(), connecting.side, undefined, connecting.offset)); setConnecting(null); return
     }
     const dragging = id && editable && tool === 'select'
     let ids = dragging ? (selected.includes(id) ? selected : event.shiftKey ? [...selected, id] : [id]) : []
@@ -174,28 +180,29 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
   const zoom = (factor: number) => setView(v => zoomAt(v, v.zoom * factor, { x: (canvas.current?.clientWidth ?? 800) / 2, y: (canvas.current?.clientHeight ?? 600) / 2 }))
   const choose = (id: string) => {
     if (tool !== 'select') return
-    if (connecting && editable && editor.graph) { editor.commit(connectNodes(editor.graph, connecting.id, id, uniqueId(), connecting.side)); setConnecting(null) }
+    if (connecting && editable && editor.graph) { editor.commit(connectNodes(editor.graph, connecting.id, id, uniqueId(), connecting.side, undefined, connecting.offset)); setConnecting(null) }
     else { setSelected([id]); setEdgeId(null) }
   }
   const selectPort = (id: string, side: MapSide) => {
     if (!editable || !editor.graph) return
     if (connecting && connecting.id !== id) {
-      editor.commit(connectNodes(editor.graph, connecting.id, id, uniqueId(), connecting.side, side)); setConnecting(null)
-    } else setConnecting(connecting?.id === id && connecting.side === side ? null : { id, side })
+      editor.commit(connectNodes(editor.graph, connecting.id, id, uniqueId(), connecting.side, side, connecting.offset, freePort(id, side))); setConnecting(null)
+    } else setConnecting(connecting?.id === id && connecting.side === side ? null : { id, side, offset: freePort(id, side) })
     setSelected([id]); setEdgeId(null)
   }
   const addBend = (raw?: { x: number; y: number }) => {
     if (!editor.graph || !edge || !editable) return
     const source = nodeMap.get(edge.source), target = nodeMap.get(edge.target)
     if (!source || !target) return
-    const points = edgePoints(source, target, edge)
+    const geometry = routedEdges.find(e => e.id === edge.id) ?? edge
+    const points = edgePoints(source, target, geometry)
     let start = points[0]!, end = points[1]!, distance = -1
     for (let i = 0; i < points.length - 1; i++) {
       const a = points[i]!, b = points[i + 1]!, d = Math.hypot(b.x - a.x, b.y - a.y)
       if (d > distance) { distance = d; start = a; end = b }
     }
     const point = raw ?? { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 }
-    editor.commit({ ...editor.graph, edges: editor.graph.edges.map(e => e.id === edge.id ? insertBend(e, source, target, point) : e) })
+    editor.commit({ ...editor.graph, edges: editor.graph.edges.map(e => e.id === edge.id ? insertBend(e, source, target, point, geometry) : e) })
   }
   return <section id="infrastructure-map" className={styles.map} data-tv={tv} aria-label="Mapa interativo da rede" onKeyDown={event => {
     if ((event.target as HTMLElement).closest('input,select,textarea,[contenteditable=true]')) return
@@ -279,10 +286,11 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
                   if (!editable || tool !== 'select' || !editor.graph) return
                   const rect = canvas.current!.getBoundingClientRect()
                   const point = worldPoint({ x: event.clientX - rect.left, y: event.clientY - rect.top }, view)
-                  editor.commit({ ...editor.graph, edges: editor.graph.edges.map(item => item.id === e.id ? insertBend(item, nodeMap.get(e.source)!, nodeMap.get(e.target)!, point) : item) })
+                  editor.commit({ ...editor.graph, edges: editor.graph.edges.map(item => item.id === e.id ? insertBend(item, nodeMap.get(e.source)!, nodeMap.get(e.target)!, point, e) : item) })
                 }}
                 onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setEdgeId(e.id); setSelected([]) } }} />
-              {e.label && <text x={curve.x} y={curve.y - 10} textAnchor="middle" className={styles.edgeLabel} style={{ fill: e.labelColor ?? undefined, stroke: graph.appearance?.background ?? undefined }}>{e.label}</text>}
+              {editable && tool === 'select' && (e.id === edgeId || selected.includes(e.source) || selected.includes(e.target)) && edgePoints(nodeMap.get(e.source)!, nodeMap.get(e.target)!, e).filter((_, i, points) => i === 0 || i === points.length - 1).map((point, index) => <circle key={`anchor-${index}`} className={styles.endpoint} cx={point.x} cy={point.y} r={4} />)}
+              {e.label && <text x={curve.x} y={curve.y - 10} textAnchor="middle" className={styles.edgeLabel} style={{ fill: e.labelColor ?? undefined, stroke: graph.appearance?.background ?? undefined }}>{e.label.split("\n").map((line, index) => <tspan key={index} x={curve.x} dy={index ? 15 : 0}>{line}</tspan>)}</text>}
               {e.id === edgeId && editable && tool === 'select' && e.bends?.map((point, index) => <circle key={index} cx={point.x} cy={point.y} r={10} className={styles.bend}
                 role="button" tabIndex={0} aria-label={`Ponto ${index + 1} da conexão; arraste para ajustar, Delete para remover`}
                 onPointerDown={event => startBend(event, e.id, index)}
@@ -295,16 +303,20 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
           const host = n.hostId ? hostMap.get(n.hostId) : undefined
           const status = host?.suspended ?? (host ? { online: 'On-line', offline: 'Off-line', unknown: 'Verificando' }[host.status] : 'Tópico')
           const size = nodeSize(n)
-          return <div key={n.id} className={styles.node} data-color={n.color} data-shape={n.shape ?? 'rounded'} data-selected={selected.includes(n.id)} data-source={connecting?.id === n.id} data-node-id={n.id}
+          return <div key={n.id} className={styles.node} data-color={n.color} data-shape={n.shape ?? 'rounded'} data-selected={selected.includes(n.id)} data-source={connecting?.id === n.id} data-node-id={n.id} data-text-align={n.textAlign ?? (['ellipse', 'circle', 'cloud', 'diamond'].includes(n.shape ?? '') ? 'center' : 'left')}
             style={{ left: n.x, top: n.y, width: size.width, height: size.height,
               '--node-fill': n.fill ?? 'var(--surface)', '--node-outline': n.outline ?? 'var(--node-color)', '--node-text': n.textColor ?? 'var(--text)' } as CSSProperties}
             role="button" tabIndex={0} aria-label={`${host?.name ?? n.label}, ${status}`} aria-pressed={selected.includes(n.id)}
             onPointerDown={e => start(e, n.id)} onDoubleClick={e => { e.stopPropagation(); if (tool !== 'select') return; if (host) onDetails(host.id); else choose(n.id) }}
             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(n.id) } }}>
+            {n.shape === 'cloud' && <svg className={styles.cloudOutline} viewBox="0 0 216 120" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d={CLOUD_PATH} /></svg>}
+            <div className={styles.nodeContent} data-map-text>
             <span className={styles.nodeTitle}>{host && <i className={styles.dot} data-status={host.suspended ? 'unknown' : host.status} />}<strong>{host?.name ?? n.label}</strong></span>
             {(host?.address ?? n.subtitle ?? 'Tópico de organização') && <span className={styles.address}>{host?.address ?? n.subtitle ?? 'Tópico de organização'}</span>}
             <span className={styles.nodeBottom}><span>{host ? status : n.caption ?? 'Tópico'}</span>{host && <b>{formatLatency(host.latencyMs)}</b>}</span>
-            {editable && tool === 'select' && (['top', 'right', 'bottom', 'left'] as const).map(side => <button key={side} type="button" className={styles.port} data-side={side} title={`Conectar pelo lado ${ { top: 'superior', right: 'direito', bottom: 'inferior', left: 'esquerdo' }[side]}`}
+            {n.texts?.filter(text => text.text).map(text => <div key={text.id} className={styles.extraText} data-kind={text.kind} style={{ textAlign: text.align }}>{text.text}</div>)}
+            </div>
+            {editable && tool === 'select' && (['top', 'right', 'bottom', 'left'] as const).map(side => <button key={side} type="button" className={styles.port} data-side={side} style={{ left: anchor(n, side, freePort(n.id, side)).x - n.x, top: anchor(n, side, freePort(n.id, side)).y - n.y }} title={`Conectar pelo lado ${ { top: 'superior', right: 'direito', bottom: 'inferior', left: 'esquerdo' }[side]}`}
               aria-label={`Conectar ${n.label} pelo lado ${ { top: 'superior', right: 'direito', bottom: 'inferior', left: 'esquerdo' }[side]}`}
               aria-pressed={connecting?.id === n.id && connecting.side === side}
               onPointerDown={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}

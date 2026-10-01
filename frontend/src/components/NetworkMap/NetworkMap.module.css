@@ -78,3 +78,25 @@ button.save { background: var(--accent); color: var(--accent-ink); border-color:
 .canvas[data-tool=select]:not([data-locked=true]), .canvas[data-tool=select]:not([data-locked=true]):active { cursor: default; }
 .inspector { overscroll-behavior: contain; touch-action: pan-y; }
 .marquee { position: absolute; pointer-events: none; border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); z-index: 5; }
+
+.nodeContent { position: relative; width: 100%; min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow: auto; overscroll-behavior: contain; touch-action: pan-y; }
+.node .nodeTitle strong, .node .address, .extraText, .nodeBottom span { white-space: pre-wrap; overflow-wrap: anywhere; text-overflow: clip; }
+.nodeTitle strong { min-width: 0; }
+.node[data-text-align=left], .node[data-text-align=center], .node[data-text-align=right] { align-items: stretch; }
+.node[data-text-align=left] { text-align: left; --text-justify: flex-start; }
+.node[data-text-align=center] { text-align: center; --text-justify: center; }
+.node[data-text-align=right] { text-align: right; --text-justify: flex-end; }
+.node .nodeTitle, .node .nodeBottom { justify-content: var(--text-justify); }
+.nodeBottom { flex-wrap: wrap; }
+.extraText { font-size: 12px; line-height: 1.4; }
+.extraText[data-kind=title] { font-size: 14px; font-weight: 700; }
+.extraText[data-kind=subtitle] { font-size: 13px; font-weight: 600; }
+.node[data-shape=cloud] { isolation: isolate; background: transparent; border: 0; border-radius: 0; padding: 24px 30px 16px; box-shadow: none; }
+.cloudOutline { position: absolute; z-index: -1; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.cloudOutline path { fill: var(--node-fill, var(--surface)); stroke: var(--node-outline, var(--node-color)); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.inspector textarea { width: 100%; min-height: 64px; resize: vertical; color: var(--text); background: var(--background); padding: 8px; border: 1px solid var(--border); border-radius: 6px; font: inherit; }
+.textBlockEditor { margin: 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; display: grid; gap: 8px; min-width: 0; }
+.blockActions { display: flex; gap: 4px; flex-wrap: wrap; }
+.endpoint { fill: var(--info); stroke: var(--background); stroke-width: 1.5; pointer-events: none; }
+
+.nodeContent > * { flex-shrink: 0; }
