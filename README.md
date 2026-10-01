@@ -2,6 +2,14 @@
 
 Painel web para acompanhar a disponibilidade de dispositivos de rede por ICMP. O backend executa as verificações, reconhece quedas e retornos e envia os dados ao frontend em tempo real por WebSocket.
 
+## Novidades da v1.9.0
+
+Mouse seleciona por área e move grupos; Hand move a câmera. “Selecionar árvore” inclui os descendentes, e o arraste leva os pontos internos das conexões junto, preservando o desenho. Shift + clique amplia a seleção; Ctrl + A/C/V/D seleciona tudo, copia, cola e duplica. As setas movem um passo da grade (Shift: quatro passos).
+
+Cópias de dispositivos são modelos visuais independentes: selecione a cópia, informe nome e IP/hostname e use “Cadastrar dispositivo neste balão” para iniciar o monitoramento do novo endereço. Copiar e colar funciona dentro do editor aberto; a área de transferência do sistema não é alterada. Cadastro afeta o inventário; desfazer o desenho não remove um dispositivo cadastrado (use Dispositivos).
+
+Tópicos permitem editar título, subtítulo e texto inferior; textos secundários vazios são ocultados. Fundo, cor e visibilidade da grade persistem ao editar e salvar. Indicadores de hosts usam verde/vermelho para on-line/off-line; estado ainda desconhecido ou suspenso usa cinza, e tópicos não exibem indicador ICMP. A rolagem dos painéis fica contida ao atingir seus limites.
+
 ## O que já está disponível
 
 - status **on-line**, **off-line** ou **verificando**;

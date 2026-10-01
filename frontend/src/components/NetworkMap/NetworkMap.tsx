@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
-import { Network, Plus, Minus, Maximize, Undo2, Redo2, Save, MousePointer2, Link2, Hand, Palette } from 'lucide-react'
+import { Network, Plus, Minus, Maximize, Undo2, Redo2, Save, MousePointer2, Link2, Hand, Palette, Copy, ClipboardPaste } from 'lucide-react'
 import type { HostSnapshot } from '../../types/monitor'
 import type { Graph, MapNode, MapSide, Viewport } from '../../types/topology'
 import { useTopology } from '../../hooks/useTopology'
-import { GRID, connectNodes, edgePoints, edgeRoute, fitNodes, initialGraph, insertBend, nodeSize, snap, snapPoint, uniqueId, worldPoint, zoomAt } from '../../utils/topology'
+import { GRID, translateSelection, rectangleSelection, selectionFragment, cloneFragment, branchSelection, connectNodes, edgePoints, edgeRoute, fitNodes, initialGraph, insertBend, nodeSize, snap, snapPoint, uniqueId, worldPoint, zoomAt } from '../../utils/topology'
+import { createDevice } from '../../services/monitor-api'
 import { formatLatency } from '../../utils/formatters'
 import { MapAppearance, MapInspector } from './MapInspector'
 import styles from './NetworkMap.module.css'
 
 interface Props { hosts: HostSnapshot[]; visibleIds: string[]; ready: boolean; tv: boolean; onDetails: (id: string) => void; onDevices: () => void; onExitTv: () => void }
-type Gesture = { pointer: number; startX: number; startY: number; view: Viewport; graph: Graph; ids: string[]; bend?: { edgeId: string; index: number }; moved: boolean; capture: Element }
+type Gesture = { pointer: number; startX: number; startY: number; view: Viewport; graph: Graph; ids: string[]; mode?: 'pan' | 'marquee' | 'nodes'; additive?: string[]; bend?: { edgeId: string; index: number }; moved: boolean; capture: Element }
 export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices, onExitTv }: Props) {
   const editor = useTopology(hosts, ready)
   const [view, setView] = useState<Viewport>({ x: 50, y: 50, zoom: .8 })
@@ -20,6 +21,10 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
   const [locked, setLocked] = useState(false)
   const [preview, setPreview] = useState<Graph | null>(null)
   const [hint, setHint] = useState('')
+  const [marquee, setMarquee] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+  const [clipboard, setClipboard] = useState<Graph | null>(null)
+  const pasteCount = useRef(0)
+  const [pendingHost, setPendingHost] = useState<{ nodeId: string; hostId: string } | null>(null)
   const [appearanceOpen, setAppearanceOpen] = useState(false)
   const canvas = useRef<HTMLDivElement>(null)
   const gesture = useRef<Gesture | null>(null)
@@ -60,7 +65,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
     const element = canvas.current
     if (!element) return
     const wheel = (event: WheelEvent) => {
-      if ((event.target as Element).closest('[aria-label="Elemento selecionado"]')) return
+      if ((event.target as Element).closest('aside,button,input,select,textarea')) return
       event.preventDefault()
       const rect = element.getBoundingClientRect()
       setView(v => zoomAt(v, v.zoom * Math.exp(-event.deltaY * .0015), { x: event.clientX - rect.left, y: event.clientY - rect.top }))
@@ -81,27 +86,54 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
   const remove = () => {
     if (!editor.graph || !editable) return
     const removable = new Set(editor.graph.nodes.filter(n => selected.includes(n.id) && !n.hostId).map(n => n.id))
-    editor.commit({ nodes: editor.graph.nodes.filter(n => !removable.has(n.id)), edges: editor.graph.edges.filter(e => e.id !== edgeId && !removable.has(e.source) && !removable.has(e.target)) })
+    editor.commit({ ...editor.graph, nodes: editor.graph.nodes.filter(n => !removable.has(n.id)), edges: editor.graph.edges.filter(e => e.id !== edgeId && !removable.has(e.source) && !removable.has(e.target)) })
     if (selected.some(id => editor.graph!.nodes.some(n => n.id === id && n.hostId))) setHint('Remova ou oculte dispositivos em Dispositivos.')
     setSelected([]); setEdgeId(null)
+  }
+  // Registration becomes a binding only once the monitoring snapshot knows the new device.
+  useEffect(() => {
+    if (!pendingHost || !editor.graph || !hosts.some(h => h.id === pendingHost.hostId)) return
+    const host = hosts.find(h => h.id === pendingHost.hostId)!
+    editor.commit({ ...editor.graph, nodes: editor.graph.nodes.filter(n => n.hostId !== host.id).map(n => n.id === pendingHost.nodeId ? { ...n, hostId: host.id, label: host.name } : n) })
+    setPendingHost(null)
+  }, [pendingHost, hosts, editor])
+  const register = async (name: string, address: string) => {
+    if (!node || !editable || pendingHost) throw new Error('Aguarde a atualização do monitoramento.')
+    const device = await createDevice({ name, address, group: 'Geral', location: '', description: '', enabled: true, maintenanceStart: null, maintenanceEnd: null })
+    setPendingHost({ nodeId: node.id, hostId: device.id }); setHint('Dispositivo cadastrado. Aguardando o primeiro status para vincular este balão.')
+  }
+  const copySelection = () => {
+    if (!editor.graph || !selected.length) return
+    const fragment = selectionFragment(editor.graph, selected)
+    fragment.nodes = fragment.nodes.map(n => n.hostId ? { ...n, subtitle: hostMap.get(n.hostId)?.address ?? '', caption: 'Modelo — cadastre um novo IP' } : n)
+    setClipboard(fragment); pasteCount.current = 0; setHint('Seleção copiada. Ctrl + V cola neste mapa.')
+    return fragment
+  }
+  const paste = (fragment = clipboard) => {
+    if (!editor.graph || !editable || !fragment?.nodes.length) return
+    if (editor.graph.nodes.length + fragment.nodes.length > 600 || editor.graph.edges.length + fragment.edges.length > 2000) { setHint('A cópia excede o limite do mapa.'); return }
+    const clone = cloneFragment(fragment, GRID * 2 * (++pasteCount.current))
+    editor.commit({ ...editor.graph, nodes: [...editor.graph.nodes, ...clone.nodes], edges: [...editor.graph.edges, ...clone.edges] })
+    setSelected(clone.nodes.map(n => n.id)); setEdgeId(null); setAppearanceOpen(false)
+    setHint('Cópia criada. Balões de dispositivos são modelos: informe um novo IP no painel para cadastrá-los.')
   }
   const start = (event: ReactPointerEvent, id?: string) => {
     if (!editor.graph || event.button !== 0 || gesture.current) return
     event.stopPropagation()
     canvas.current?.focus({ preventScroll: true })
-    if (connecting && id && editable) {
+    if (connecting && id && editable && tool === 'select') {
       editor.commit(connectNodes(editor.graph, connecting.id, id, uniqueId(), connecting.side)); setConnecting(null); return
     }
     const dragging = id && editable && tool === 'select'
     let ids = dragging ? (selected.includes(id) ? selected : event.shiftKey ? [...selected, id] : [id]) : []
     if (dragging && event.shiftKey && selected.includes(id)) ids = selected.filter(x => x !== id)
     if (dragging) { setSelected(ids); setEdgeId(null) }
-    else if (!id) { setSelected([]); setEdgeId(null) }
-    gesture.current = { pointer: event.pointerId, startX: event.clientX, startY: event.clientY, view, graph: editor.graph, ids, moved: false, capture: event.currentTarget }
+    else if (!id && tool === 'select') { if (!event.shiftKey) setSelected([]); setEdgeId(null) }
+    gesture.current = { pointer: event.pointerId, startX: event.clientX, startY: event.clientY, view, graph: editor.graph, ids, mode: tool === 'pan' ? 'pan' : id ? 'nodes' : 'marquee', additive: event.shiftKey ? selected : [], moved: false, capture: event.currentTarget }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
   const startBend = (event: ReactPointerEvent<SVGCircleElement>, edgeId: string, index: number) => {
-    if (!editor.graph || !editable || gesture.current || event.button !== 0) return
+    if (!editor.graph || !editable || tool !== 'select' || gesture.current || event.button !== 0) return
     event.stopPropagation()
     setEdgeId(edgeId); setSelected([])
     gesture.current = { pointer: event.pointerId, startX: event.clientX, startY: event.clientY,
@@ -117,22 +149,31 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
     if (Math.hypot(dx, dy) < 3 && !g.moved) return
     g.moved = true
     if (g.bend) setPreview(moveBend(g.graph, g.bend.edgeId, g.bend.index, dx, dy, g.view.zoom))
-    else if (!g.ids.length) setView({ ...g.view, x: g.view.x + dx, y: g.view.y + dy })
-    else setPreview({ ...g.graph, nodes: g.graph.nodes.map(n => g.ids.includes(n.id) ? { ...n, x: snap(n.x + dx / g.view.zoom), y: snap(n.y + dy / g.view.zoom) } : n) })
+    else if (g.mode === 'marquee') {
+      const rect = canvas.current!.getBoundingClientRect()
+      const start = { x: g.startX - rect.left, y: g.startY - rect.top }, end = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+      setMarquee({ x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.abs(end.x - start.x), height: Math.abs(end.y - start.y) })
+      setSelected([...new Set([...g.additive ?? [], ...rectangleSelection(nodes, worldPoint(start, g.view), worldPoint(end, g.view))])])
+    }
+    else if (g.mode === 'pan') setView({ ...g.view, x: g.view.x + dx, y: g.view.y + dy })
+    else setPreview(translateSelection(g.graph, g.ids, dx / g.view.zoom, dy / g.view.zoom))
   }
   const end = (event: ReactPointerEvent, cancelled = false) => {
     const g = gesture.current
     if (!g || event.pointerId !== g.pointer) return
     if (!cancelled && g.moved && g.bend) editor.commit(moveBend(g.graph, g.bend.edgeId, g.bend.index, event.clientX - g.startX, event.clientY - g.startY, g.view.zoom))
-    else if (!cancelled && g.moved && g.ids.length) {
+    else if (!cancelled && g.moved && g.mode === 'nodes' && g.ids.length) {
       const dx = (event.clientX - g.startX) / g.view.zoom, dy = (event.clientY - g.startY) / g.view.zoom
-      editor.commit({ ...g.graph, nodes: g.graph.nodes.map(n => g.ids.includes(n.id) ? { ...n, x: snap(n.x + dx), y: snap(n.y + dy) } : n) })
+      editor.commit(translateSelection(g.graph, g.ids, dx, dy))
     }
-    gesture.current = null; setPreview(null)
+    if (cancelled && g.mode === 'pan') setView(g.view)
+    if (cancelled && g.mode === 'marquee') setSelected(g.additive ?? [])
+    gesture.current = null; setPreview(null); setMarquee(null)
     if (g.capture.hasPointerCapture(event.pointerId)) g.capture.releasePointerCapture(event.pointerId)
   }
   const zoom = (factor: number) => setView(v => zoomAt(v, v.zoom * factor, { x: (canvas.current?.clientWidth ?? 800) / 2, y: (canvas.current?.clientHeight ?? 600) / 2 }))
   const choose = (id: string) => {
+    if (tool !== 'select') return
     if (connecting && editable && editor.graph) { editor.commit(connectNodes(editor.graph, connecting.id, id, uniqueId(), connecting.side)); setConnecting(null) }
     else { setSelected([id]); setEdgeId(null) }
   }
@@ -157,27 +198,38 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
     editor.commit({ ...editor.graph, edges: editor.graph.edges.map(e => e.id === edge.id ? insertBend(e, source, target, point) : e) })
   }
   return <section id="infrastructure-map" className={styles.map} data-tv={tv} aria-label="Mapa interativo da rede" onKeyDown={event => {
-    if ((event.target as HTMLElement).closest('input,select,textarea')) return
+    if ((event.target as HTMLElement).closest('input,select,textarea,[contenteditable=true]')) return
     if (event.key === 'Escape') { setConnecting(null); setSelected([]); setEdgeId(null); return }
     if (!editable || !editor.graph) return
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); if (event.shiftKey) editor.redo(); else editor.undo() }
+    if ((event.ctrlKey || event.metaKey) && ['a', 'c', 'v', 'd'].includes(event.key.toLowerCase())) {
+      event.preventDefault()
+      const key = event.key.toLowerCase()
+      if (key === 'a') { setSelected(nodes.map(n => n.id)); setEdgeId(null) }
+      else if (key === 'c') copySelection()
+      else if (key === 'v') paste()
+      else paste(copySelection())
+    }
+    else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); if (event.shiftKey) editor.redo(); else editor.undo() }
     else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') { event.preventDefault(); editor.redo() }
     else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); void editor.save() }
     else if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); remove() }
     else if (event.key.toLowerCase() === 'c' && !event.ctrlKey && !event.metaKey && node) { setConnecting({ id: node.id }) }
     else if (event.key.toLowerCase() === 'n' && !event.ctrlKey && !event.metaKey) { event.preventDefault(); addTopic(event.shiftKey ? node : undefined) }
     else if (event.key.startsWith('Arrow') && selected.length) {
-      event.preventDefault(); const step = event.shiftKey ? 40 : 10
-      editor.commit({ ...editor.graph, nodes: editor.graph.nodes.map(n => !selected.includes(n.id) ? n : { ...n,
-        x: snap(n.x + (event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0)),
-        y: snap(n.y + (event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0)) }) })
+      event.preventDefault(); const step = event.shiftKey ? GRID * 4 : GRID
+      editor.commit(translateSelection(editor.graph, selected,
+        event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0,
+        event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0))
     }
   }}>
     <header className={styles.toolbar}>
       <div className={styles.brand}><Network size={19} /><strong>Mapa da rede</strong><span>{nodes.length} balões</span></div>
       <div className={styles.tools}>
         <button aria-label="Selecionar e arrastar balões" aria-pressed={tool === 'select'} onClick={() => setTool('select')}><MousePointer2 size={17} /></button>
-        <button aria-label="Mover o mapa" aria-pressed={tool === 'pan'} onClick={() => setTool('pan')}><Hand size={17} /></button>
+        <button aria-label="Mover o mapa" aria-pressed={tool === 'pan'} onClick={() => { setTool('pan'); setConnecting(null) }}><Hand size={17} /></button>
+        <button disabled={!editable || !selected.length} title="Duplicar (Ctrl + D)" onClick={() => paste(copySelection())}><Copy size={16} /> Duplicar</button>
+        <button disabled={!editable || !clipboard} title="Colar (Ctrl + V)" onClick={() => paste()}><ClipboardPaste size={16} /> Colar</button>
+        <button disabled={!editable || !selected.length} onClick={() => { if (graph) setSelected(branchSelection(graph, selected).filter(id => nodeMap.has(id))) }}>Selecionar árvore</button>
         <button disabled={!editable || !graph} onClick={() => addTopic()}><Plus size={16} /> Tópico</button>
         <button disabled={!editable || !graph} aria-pressed={appearanceOpen} onClick={() => setAppearanceOpen(value => !value)}><Palette size={16} /> Fundo e grade</button>
         <button disabled={!editable || !node} aria-pressed={Boolean(connecting)} onClick={() => setConnecting(connecting ? null : node ? { id: node.id } : null)}><Link2 size={16} /> Conectar</button>
@@ -201,13 +253,13 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
     {!tv && hint && <p className={styles.message} role="status">{hint} <button onClick={() => setHint('')}>Fechar</button></p>}
     {connecting && editable && <p className={styles.message} role="status">Clique no balão de destino para conectar. Esc cancela.</p>}
     {tv && <button type="button" className={styles.exitTv} onClick={onExitTv}>Sair do modo TV</button>}
-    <div ref={canvas} className={styles.canvas} tabIndex={0} aria-label="Área do mapa: arraste balões ou o fundo, use a roda para zoom" data-tool={tool} data-locked={!editable}
+    <div ref={canvas} className={styles.canvas} tabIndex={0} aria-label="Área do mapa: Mouse seleciona; Hand move a câmera; roda ajusta zoom" data-tool={tool} data-locked={!editable}
       style={{ backgroundPosition: `${view.x}px ${view.y}px`, backgroundSize: `${GRID * view.zoom}px ${GRID * view.zoom}px`,
         backgroundColor: graph?.appearance?.background ?? undefined, backgroundImage: graph?.appearance?.showGrid === false ? 'none' : undefined,
         '--grid-color': graph?.appearance?.gridColor ?? 'var(--border-soft)' } as CSSProperties}
       onPointerDown={e => start(e)} onPointerMove={move} onPointerUp={e => end(e)} onPointerCancel={e => end(e, true)}
       onDoubleClick={e => {
-        if (e.target !== canvas.current || !editable) return
+        if (e.target !== canvas.current || !editable || tool !== 'select') return
         const rect = canvas.current.getBoundingClientRect()
         addTopic(undefined, worldPoint({ x: e.clientX - rect.left, y: e.clientY - rect.top }, view))
       }}>
@@ -221,17 +273,17 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
               <path className={styles.edgeLine} d={curve.path} style={{ stroke: e.stroke ?? undefined, strokeWidth: e.lineWidth ?? undefined,
                 strokeDasharray: e.lineStyle === 'dashed' ? '10 7' : e.lineStyle === 'dotted' ? '2 6' : undefined }} />
               <path className={styles.edgeHit} d={curve.path} role="button" tabIndex={0} aria-label={`Conexão ${e.label || `${nodeMap.get(e.source)!.label} para ${nodeMap.get(e.target)!.label}`}`}
-                onPointerDown={event => { event.stopPropagation(); setEdgeId(e.id); setSelected([]) }}
+                onPointerDown={event => { if (tool === 'pan' || !editable) { start(event); return }; event.stopPropagation(); canvas.current?.focus({ preventScroll: true }); setEdgeId(e.id); setSelected([]) }}
                 onDoubleClick={event => {
                   event.stopPropagation()
-                  if (!editable || !editor.graph) return
+                  if (!editable || tool !== 'select' || !editor.graph) return
                   const rect = canvas.current!.getBoundingClientRect()
                   const point = worldPoint({ x: event.clientX - rect.left, y: event.clientY - rect.top }, view)
                   editor.commit({ ...editor.graph, edges: editor.graph.edges.map(item => item.id === e.id ? insertBend(item, nodeMap.get(e.source)!, nodeMap.get(e.target)!, point) : item) })
                 }}
                 onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setEdgeId(e.id); setSelected([]) } }} />
               {e.label && <text x={curve.x} y={curve.y - 10} textAnchor="middle" className={styles.edgeLabel} style={{ fill: e.labelColor ?? undefined, stroke: graph.appearance?.background ?? undefined }}>{e.label}</text>}
-              {e.id === edgeId && editable && e.bends?.map((point, index) => <circle key={index} cx={point.x} cy={point.y} r={10} className={styles.bend}
+              {e.id === edgeId && editable && tool === 'select' && e.bends?.map((point, index) => <circle key={index} cx={point.x} cy={point.y} r={10} className={styles.bend}
                 role="button" tabIndex={0} aria-label={`Ponto ${index + 1} da conexão; arraste para ajustar, Delete para remover`}
                 onPointerDown={event => startBend(event, e.id, index)}
                 onDoubleClick={event => { event.stopPropagation(); editor.commit({ ...editor.graph!, edges: editor.graph!.edges.map(item => item.id === e.id ? { ...item, bends: item.bends?.filter((_, i) => i !== index) } : item) }) }}
@@ -247,12 +299,12 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
             style={{ left: n.x, top: n.y, width: size.width, height: size.height,
               '--node-fill': n.fill ?? 'var(--surface)', '--node-outline': n.outline ?? 'var(--node-color)', '--node-text': n.textColor ?? 'var(--text)' } as CSSProperties}
             role="button" tabIndex={0} aria-label={`${host?.name ?? n.label}, ${status}`} aria-pressed={selected.includes(n.id)}
-            onPointerDown={e => start(e, n.id)} onDoubleClick={e => { e.stopPropagation(); if (host) onDetails(host.id); else choose(n.id) }}
+            onPointerDown={e => start(e, n.id)} onDoubleClick={e => { e.stopPropagation(); if (tool !== 'select') return; if (host) onDetails(host.id); else choose(n.id) }}
             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(n.id) } }}>
-            <span className={styles.nodeTitle}><i className={styles.dot} data-status={host?.suspended ? 'unknown' : host?.status ?? 'topic'} /><strong>{host?.name ?? n.label}</strong></span>
-            <span className={styles.address}>{host?.address ?? 'Tópico de organização'}</span>
-            <span className={styles.nodeBottom}><span>{status}</span>{host && <b>{formatLatency(host.latencyMs)}</b>}</span>
-            {editable && (['top', 'right', 'bottom', 'left'] as const).map(side => <button key={side} type="button" className={styles.port} data-side={side} title={`Conectar pelo lado ${ { top: 'superior', right: 'direito', bottom: 'inferior', left: 'esquerdo' }[side]}`}
+            <span className={styles.nodeTitle}>{host && <i className={styles.dot} data-status={host.suspended ? 'unknown' : host.status} />}<strong>{host?.name ?? n.label}</strong></span>
+            {(host?.address ?? n.subtitle ?? 'Tópico de organização') && <span className={styles.address}>{host?.address ?? n.subtitle ?? 'Tópico de organização'}</span>}
+            <span className={styles.nodeBottom}><span>{host ? status : n.caption ?? 'Tópico'}</span>{host && <b>{formatLatency(host.latencyMs)}</b>}</span>
+            {editable && tool === 'select' && (['top', 'right', 'bottom', 'left'] as const).map(side => <button key={side} type="button" className={styles.port} data-side={side} title={`Conectar pelo lado ${ { top: 'superior', right: 'direito', bottom: 'inferior', left: 'esquerdo' }[side]}`}
               aria-label={`Conectar ${n.label} pelo lado ${ { top: 'superior', right: 'direito', bottom: 'inferior', left: 'esquerdo' }[side]}`}
               aria-pressed={connecting?.id === n.id && connecting.side === side}
               onPointerDown={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}
@@ -260,15 +312,16 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
           </div>
         })}
       </div>
+      {marquee && <div className={styles.marquee} style={{ left: marquee.x, top: marquee.y, width: marquee.width, height: marquee.height }} />}
       {editable && graph && appearanceOpen && <MapAppearance graph={graph} commit={editor.commit} onClose={() => setAppearanceOpen(false)} />}
-      {editable && graph && !appearanceOpen && (node || edge) && <div onPointerDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}><MapInspector key={`${node?.id ?? edge?.id}:${node?.label ?? edge?.label}`} node={node} edge={edge} graph={graph} host={node?.hostId ? hostMap.get(node.hostId) : undefined} commit={editor.commit} onDetails={onDetails} onConnect={() => setConnecting(node ? { id: node.id } : null)} onChild={() => addTopic(node)} onDelete={remove} onAddBend={() => addBend()} /></div>}
+      {editable && graph && !appearanceOpen && (node || edge) && <div onPointerDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}><MapInspector key={`${node?.id ?? edge?.id}:${node?.label ?? edge?.label}`} node={node} edge={edge} graph={graph} host={node?.hostId ? hostMap.get(node.hostId) : undefined} commit={editor.commit} onDetails={onDetails} onConnect={() => setConnecting(node ? { id: node.id } : null)} onChild={() => addTopic(node)} onDelete={remove} onAddBend={() => addBend()} onRegister={register} /></div>}
       <div className={styles.zoom} onPointerDown={e => e.stopPropagation()}>
         <button aria-label="Diminuir zoom" onClick={() => zoom(1 / 1.2)}><Minus size={17} /></button><span>{Math.round(view.zoom * 100)}%</span>
         <button aria-label="Aumentar zoom" onClick={() => zoom(1.2)}><Plus size={17} /></button><button aria-label="Enquadrar mapa" onClick={fit}><Maximize size={17} /></button>
       </div>
     </div>
-    <footer className={styles.help}><span>Arraste balões ou o fundo • Duplo clique na linha: criar dobra • Arraste o ponto azul para ajustar • Duplo clique no ponto: remover</span>
-      <details><summary>Atalhos e informações</summary><p>N: tópico • Shift + N: subtópico • C: conectar • setas: mover seleção • Delete: excluir tópico/conexão • Ctrl + Z / Ctrl + Shift + Z: desfazer/refazer • Ctrl + S: salvar.</p><p>Conexões são organizadas manualmente e não comprovam ligações físicas descobertas por ping. Salve para compartilhar o mapa com outras telas.</p></details>
+    <footer className={styles.help}><span>Mouse: selecionar/arrastar balões e seleção por área • Hand: mover câmera • Duplo clique na linha: criar dobra • Arraste o ponto azul para ajustar • Duplo clique no ponto: remover</span>
+      <details><summary>Atalhos e informações</summary><p>Ctrl + A: selecionar tudo • Ctrl + C / V / D: copiar/colar/duplicar • Shift + clique: seleção múltipla • N: tópico • Shift + N: subtópico • C: conectar • setas: mover seleção • Delete: excluir tópico/conexão • Ctrl + Z / Ctrl + Shift + Z: desfazer/refazer • Ctrl + S: salvar.</p><p>Conexões são organizadas manualmente e não comprovam ligações físicas descobertas por ping. Salve para compartilhar o mapa com outras telas.</p></details>
     </footer>
   </section>
 }

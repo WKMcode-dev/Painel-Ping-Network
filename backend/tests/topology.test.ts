@@ -157,3 +157,52 @@ test('HTTP map save/load validates JSON, rejects foreign origin and stale revisi
     assert.equal((await (await fetch(url)).json()).revision, 1)
   } finally { await new Promise<void>(resolve => server.close(() => resolve())); await rm(dir, { recursive: true, force: true }) }
 })
+
+test('group translation preserves internal bends, styles and appearance, leaving external bends fixed', async () => {
+  const { translateSelection } = await import('../../frontend/src/utils/topology.js')
+  const graph = initialGraph(devices)
+  graph.appearance = { background: '#123456', gridColor: '#abcdef', showGrid: false }
+  graph.edges[0]!.bends = [{ x: 240, y: 24 }, { x: 288, y: 72 }]
+  graph.edges[1]!.bends = [{ x: 600, y: 144 }]
+  const edge = graph.edges[0]!, ids = [edge.source, edge.target]
+  const moved = translateSelection(graph, ids, 50, -30)
+  assert.deepEqual(moved.edges[0]!.bends, [{ x: 288, y: 0 }, { x: 336, y: 48 }])
+  assert.deepEqual(moved.edges[1]!.bends, graph.edges[1]!.bends)
+  assert.deepEqual(moved.appearance, graph.appearance)
+  assert.deepEqual(reconcileGraph(moved, devices).appearance, graph.appearance)
+  assert.deepEqual(graph.edges[0]!.bends, [{ x: 240, y: 24 }, { x: 288, y: 72 }])
+  const oldRoute = edgePoints(graph.nodes.find(n => n.id === edge.source)!, graph.nodes.find(n => n.id === edge.target)!, edge)
+  const newRoute = edgePoints(moved.nodes.find(n => n.id === edge.source)!, moved.nodes.find(n => n.id === edge.target)!, moved.edges[0]!)
+  assert.deepEqual(newRoute, oldRoute.map(p => ({ x: p.x + 48, y: p.y - 24 })))
+})
+
+test('marquee selection works in all directions and respects node dimensions', async () => {
+  const { rectangleSelection } = await import('../../frontend/src/utils/topology.js')
+  const nodes = [{ id: 'x', label: 'X', x: 24, y: 24, width: 288, height: 120, color: 'blue' as const }, { id: 'y', label: 'Y', x: 600, y: 600, color: 'blue' as const }]
+  for (const [a, b] of [[{ x: 280, y: 100 }, { x: 400, y: 200 }], [{ x: 400, y: 200 }, { x: 280, y: 100 }]]) assert.deepEqual(rectangleSelection(nodes, a!, b!), ['x'])
+  assert.deepEqual(rectangleSelection(nodes, { x: 400, y: 300 }, { x: 500, y: 500 }), [])
+})
+
+test('copy and duplicate preserve subtree geometry and generate independent templates', async () => {
+  const { selectionFragment, cloneFragment, branchSelection } = await import('../../frontend/src/utils/topology.js')
+  const graph = initialGraph(devices)
+  graph.nodes[0]!.subtitle = ''; graph.nodes[0]!.caption = 'Organização'; graph.nodes[0]!.shape = 'ellipse'
+  graph.edges[0]!.bends = [{ x: 240, y: 24 }]; graph.edges[0]!.stroke = '#123456'
+  const ids = branchSelection(graph, ['root'])
+  assert.equal(ids.length, graph.nodes.length)
+  const fragment = selectionFragment(graph, ids)
+  let index = 0
+  const copy = cloneFragment(fragment, 48, () => `copy-${index++}`)
+  assert.ok(copy.nodes.every(n => !n.hostId && !ids.includes(n.id)))
+  assert.equal(copy.nodes[0]!.shape, 'ellipse')
+  assert.equal(copy.nodes[0]!.subtitle, '')
+  assert.equal(copy.nodes[0]!.caption, 'Organização')
+  assert.deepEqual(copy.edges[0]!.bends, [{ x: 288, y: 72 }])
+  assert.equal(copy.edges[0]!.stroke, '#123456')
+  assert.ok(topologySchema.safeParse({ nodes: [...graph.nodes, ...copy.nodes], edges: [...graph.edges, ...copy.edges] }).success)
+  copy.edges[0]!.bends![0]!.x = 999
+  assert.equal(graph.edges[0]!.bends![0]!.x, 240)
+  assert.equal(fragment.edges[0]!.bends![0]!.x, 240)
+  assert.equal(selectionFragment(graph, ['root']).edges.length, 0)
+  assert.equal(topologySchema.safeParse({ ...graph, nodes: [{ ...graph.nodes[0]!, caption: 'a'.repeat(101) }] }).success, false)
+})

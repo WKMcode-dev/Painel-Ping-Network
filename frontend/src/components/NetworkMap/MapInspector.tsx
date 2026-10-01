@@ -28,20 +28,31 @@ export function ColorControl({ label, value, fallback, onChange, onClear, preset
   </div>
 }
 
-interface Props { node?: MapNode; edge?: MapEdge; graph: Graph; host?: HostSnapshot; commit: (g: Graph) => void; onDetails: (id: string) => void; onConnect: () => void; onChild: () => void; onDelete: () => void; onAddBend: () => void }
-export function MapInspector({ node, edge, graph, host, commit, onDetails, onConnect, onChild, onDelete, onAddBend }: Props) {
+interface Props { node?: MapNode; edge?: MapEdge; graph: Graph; host?: HostSnapshot; commit: (g: Graph) => void; onDetails: (id: string) => void; onConnect: () => void; onChild: () => void; onDelete: () => void; onAddBend: () => void; onRegister: (name: string, address: string) => Promise<void> }
+export function MapInspector({ node, edge, graph, host, commit, onDetails, onConnect, onChild, onDelete, onAddBend, onRegister }: Props) {
+  const [subtitle, setSubtitle] = useState(node?.subtitle ?? 'Tópico de organização')
+  const [caption, setCaption] = useState(node?.caption ?? 'Tópico')
+  const [address, setAddress] = useState('')
+  const [registering, setRegistering] = useState(false)
+  const [error, setError] = useState('')
   const [label, setLabel] = useState(edge?.label ?? node?.label ?? '')
   const changeNode = (changes: Partial<MapNode>) => { if (node) commit({ ...graph, nodes: graph.nodes.map(x => x.id === node.id ? { ...x, ...changes } : x) }) }
   const changeEdge = (changes: Partial<MapEdge>) => { if (edge) commit({ ...graph, edges: graph.edges.map(x => x.id === edge.id ? { ...x, ...changes } : x) }) }
   const dimensions = node ? nodeSize(node) : null
-  return <aside className={styles.inspector} aria-label="Elemento selecionado" onPointerDown={e => e.stopPropagation()}>
+  return <aside className={styles.inspector} aria-label="Elemento selecionado" onPointerDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}>
     <strong>{edge ? 'Conexão' : host ? host.name : 'Tópico'}</strong>
     {host && <><span>{host.address}</span><span>{host.suspended ?? { online: 'On-line', offline: 'Off-line', unknown: 'Verificando' }[host.status]}</span><button onClick={() => onDetails(host.id)}>Abrir status e histórico</button></>}
     {(!node?.hostId || edge) && <form onSubmit={e => {
       e.preventDefault()
       if (edge) changeEdge({ label: label.trim() })
-      else if (label.trim()) changeNode({ label: label.trim() })
-    }}><label>{edge ? 'Nome da conexão' : 'Nome do tópico'}<input maxLength={edge ? 80 : 100} value={label} onChange={e => setLabel(e.target.value)} /></label><button type="submit">Aplicar nome</button></form>}
+      else if (label.trim()) changeNode({ label: label.trim(), subtitle, caption })
+    }}><label>{edge ? 'Nome da conexão' : 'Nome do tópico'}<input maxLength={edge ? 80 : 100} value={label} onChange={e => setLabel(e.target.value)} /></label>{node && <><label>Subtítulo (vazio para ocultar)<input maxLength={100} value={subtitle} onChange={e => setSubtitle(e.target.value)} /></label><label>Texto inferior (vazio para ocultar)<input maxLength={100} value={caption} onChange={e => setCaption(e.target.value)} /></label></>}<button type="submit">Aplicar textos</button></form>}
+    {node && !node.hostId && <form onSubmit={async e => {
+      e.preventDefault(); setRegistering(true); setError('')
+      try { await onRegister(label.trim() || node.label, address.trim()) }
+      catch (error) { setError(error instanceof Error ? error.message : 'Não foi possível cadastrar') }
+      finally { setRegistering(false) }
+    }}><label>IP ou hostname para monitorar<input required maxLength={253} value={address} onChange={e => setAddress(e.target.value)} /></label><button disabled={registering} type="submit">{registering ? 'Cadastrando…' : 'Cadastrar dispositivo neste balão'}</button>{error && <small role="alert">{error}</small>}</form>}
     {node && <>
       <label>Forma<select value={node.shape ?? 'rounded'} onChange={e => changeNode({ shape: e.target.value as NodeShape, width: undefined, height: undefined })}>
         {shapes.map(shape => <option key={shape.value} value={shape.value}>{shape.label}</option>)}
@@ -75,7 +86,7 @@ export function MapInspector({ node, edge, graph, host, commit, onDetails, onCon
 export function MapAppearance({ graph, commit, onClose }: { graph: Graph; commit: (g: Graph) => void; onClose: () => void }) {
   const appearance = graph.appearance ?? {}
   const change = (changes: Partial<NonNullable<Graph['appearance']>>) => commit({ ...graph, appearance: { ...appearance, ...changes } })
-  return <aside className={styles.inspector} aria-label="Aparência do mapa" onPointerDown={e => e.stopPropagation()}>
+  return <aside className={styles.inspector} aria-label="Aparência do mapa" onPointerDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}>
     <strong>Aparência do mapa</strong>
     <ColorControl label="Fundo" value={appearance.background} fallback="#ffffff" onChange={background => change({ background })} onClear={() => change({ background: undefined })} />
     <ColorControl label="Grade" value={appearance.gridColor} fallback="#d9d9d9" onChange={gridColor => change({ gridColor })} onClear={() => change({ gridColor: undefined })} />

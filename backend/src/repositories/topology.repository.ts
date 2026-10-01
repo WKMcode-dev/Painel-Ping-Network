@@ -7,7 +7,7 @@ const id = z.string().min(1).max(160)
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Use uma cor hexadecimal #RRGGBB')
 export const topologySchema = z.object({
   nodes: z.array(z.object({
-    id, hostId: z.string().min(1).max(80).optional(), label: z.string().trim().min(1).max(100),
+    id, hostId: z.string().min(1).max(80).optional(), label: z.string().trim().min(1).max(100), subtitle: z.string().max(100).optional(), caption: z.string().max(100).optional(),
     x: z.number().finite().min(-200000).max(200000), y: z.number().finite().min(-200000).max(200000),
     color: z.enum(['neutral', 'blue', 'green', 'orange', 'purple', 'pink']).default('neutral'),
     shape: z.enum(['rounded', 'rectangle', 'pill', 'ellipse', 'circle', 'cloud', 'diamond']).optional(),
