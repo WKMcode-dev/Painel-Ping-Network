@@ -14,7 +14,7 @@ export function createApp(monitorService: MonitorService) {
   app.use(express.json({ limit: '2mb' }))
 
   app.get('/api/health', (_request, response) => {
-    response.json({ status: 'ok', timestamp: new Date().toISOString() })
+    response.json({ status: 'ok', application: 'painel-ping', timestamp: new Date().toISOString() })
   })
   app.use('/api/topology', createTopologyRouter())
   app.use('/api/monitor', createMonitorRouter(monitorService))

@@ -1,13 +1,13 @@
 {
   "name": "painel-ping",
-  "version": "1.9.2",
+  "version": "1.9.3",
   "private": true,
   "workspaces": [
     "frontend",
     "backend"
   ],
   "scripts": {
-    "dev": "concurrently -n FRONTEND,BACKEND -c cyan,magenta \"npm run dev -w frontend\" \"npm run dev -w backend\"",
+    "dev": "concurrently -k -n FRONTEND,BACKEND -c cyan,magenta \"npm run dev:frontend -w backend\" \"npm run dev -w backend\"",
     "build": "npm run build -w frontend && npm run build -w backend",
     "lint": "npm run lint -w frontend && npm run lint -w backend",
     "start": "npm run start -w backend",

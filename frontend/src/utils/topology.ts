@@ -6,7 +6,7 @@ export const snap = (value: number) => clampCoordinate(Math.round(value / GRID) 
 export const snapPoint = (point: MapPoint): MapPoint => ({ x: snap(point.x), y: snap(point.y) })
 export function nodeSize(node: MapNode) {
   const defaultSize = node.shape === 'circle' || node.shape === 'diamond' ? { width: 144, height: 144 }
-    : node.shape === 'ellipse' || node.shape === 'cloud' ? { width: 216, height: 120 }
+    : node.shape === 'cloud' ? { width: 216, height: 144 } : node.shape === 'ellipse' ? { width: 216, height: 120 }
       : node.shape === 'pill' ? { width: 216, height: 72 } : { width: NODE_WIDTH, height: NODE_HEIGHT }
   const width = node.width ?? defaultSize.width
   const extra = node.texts?.filter(t => t.text) ?? []
@@ -73,7 +73,8 @@ export function connectNodes(graph: Graph, source: string, target: string, id: s
   if (graph.edges.length >= 2000 || graph.edges.some(e => e.id === id) || source === target || !graph.nodes.some(n => n.id === source) || !graph.nodes.some(n => n.id === target)) return graph
   return { ...graph, edges: [...graph.edges, { id, source, target, label: '', ...(sourceSide && { sourceSide }), ...(targetSide && { targetSide }), ...(sourceOffset !== undefined && { sourceOffset }), ...(targetOffset !== undefined && { targetOffset }) }] }
 }
-export const CLOUD_PATH = 'M 42 112 C 18 112 0 97 0 78 C 0 60 12 44 31 43 C 28 21 49 10 69 16 C 79 -5 111 -5 124 14 C 145 4 168 16 173 35 C 197 32 216 48 216 69 C 216 92 203 106 181 108 C 171 123 147 122 132 113 C 111 123 83 122 69 113 C 61 119 48 119 42 112 Z'
+export const CLOUD_VIEW_HEIGHT = 144
+export const CLOUD_PATH = 'M 44 144 C 20 144 0 124 0 101 C 0 78 15 59 36 54 C 35 24 58 0 88 0 C 115 0 138 19 142 42 C 152 36 165 35 176 39 C 192 44 202 58 202 74 C 211 79 216 90 216 108 C 216 128 201 144 180 144 Z'
 // Sample the shared SVG contour once, so cloud connection points follow its silhouette.
 const cloudContour: MapPoint[] = (() => {
   const tokens = CLOUD_PATH.match(/[MCZ]|-?\d+(?:\.\d+)?/g)!, points: MapPoint[] = []
@@ -103,7 +104,7 @@ export function anchor(node: MapNode, side: MapSide, offset = .5): MapPoint {
       : { x: node.x + width / 2 * (side === 'left' ? 1 - factor : 1 + factor), y: node.y + height * offset }
   }
   if (node.shape === 'cloud') {
-    const axis = horizontal ? 'x' : 'y', other = horizontal ? 'y' : 'x', coordinate = offset * (horizontal ? 216 : 120), hits: number[] = []
+    const axis = horizontal ? 'x' : 'y', other = horizontal ? 'y' : 'x', coordinate = offset * (horizontal ? 216 : CLOUD_VIEW_HEIGHT), hits: number[] = []
     for (let i = 1; i < cloudContour.length; i++) {
       const a = cloudContour[i - 1]!, b = cloudContour[i]!, span = b[axis] - a[axis]
       if (!span) continue
@@ -112,7 +113,7 @@ export function anchor(node: MapNode, side: MapSide, offset = .5): MapPoint {
     }
     if (hits.length) {
       const boundary = side === 'top' || side === 'left' ? Math.min(...hits) : Math.max(...hits)
-      return horizontal ? { x: node.x + width * offset, y: node.y + height * boundary / 120 }
+      return horizontal ? { x: node.x + width * offset, y: node.y + height * boundary / CLOUD_VIEW_HEIGHT }
         : { x: node.x + width * boundary / 216, y: node.y + height * offset }
     }
   }

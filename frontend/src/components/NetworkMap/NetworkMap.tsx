@@ -3,8 +3,9 @@ import { Network, Plus, Minus, Maximize, Undo2, Redo2, Save, MousePointer2, Link
 import type { HostSnapshot } from '../../types/monitor'
 import type { Graph, MapNode, MapSide, Viewport } from '../../types/topology'
 import { useTopology } from '../../hooks/useTopology'
-import { GRID, CLOUD_PATH, anchor, resolvedEdges, freePortOffsets, translateSelection, rectangleSelection, selectionFragment, cloneFragment, branchSelection, connectNodes, edgePoints, edgeRoute, fitNodes, initialGraph, insertBend, nodeSize, snap, snapPoint, uniqueId, worldPoint, zoomAt } from '../../utils/topology'
+import { GRID, CLOUD_VIEW_HEIGHT, CLOUD_PATH, anchor, resolvedEdges, freePortOffsets, translateSelection, rectangleSelection, selectionFragment, cloneFragment, branchSelection, connectNodes, edgePoints, edgeRoute, fitNodes, initialGraph, insertBend, nodeSize, snap, snapPoint, uniqueId, worldPoint, zoomAt } from '../../utils/topology'
 import { createDevice } from '../../services/monitor-api'
+import { wheelNavigation, isPanWheel } from '../../utils/map-navigation'
 import { formatLatency } from '../../utils/formatters'
 import { MapAppearance, MapInspector } from './MapInspector'
 import styles from './NetworkMap.module.css'
@@ -18,6 +19,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
   const [edgeId, setEdgeId] = useState<string | null>(null)
   const [connecting, setConnecting] = useState<{ id: string; side?: MapSide; offset?: number } | null>(null)
   const [tool, setTool] = useState<'select' | 'pan'>('select')
+  const [wheelPanning, setWheelPanning] = useState(false)
   const [locked, setLocked] = useState(false)
   const [preview, setPreview] = useState<Graph | null>(null)
   const [hint, setHint] = useState('')
@@ -67,6 +69,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
   useEffect(() => {
     const element = canvas.current
     if (!element) return
+    let idle: ReturnType<typeof setTimeout> | undefined
     const wheel = (event: WheelEvent) => {
       const target = event.target as Element
       if (target.closest('aside,button,input,select,textarea')) return
@@ -74,10 +77,14 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
       if (text && text.scrollHeight > text.clientHeight) return
       event.preventDefault()
       const rect = element.getBoundingClientRect()
-      setView(v => zoomAt(v, v.zoom * Math.exp(-event.deltaY * .0015), { x: event.clientX - rect.left, y: event.clientY - rect.top }))
+      if (gesture.current) return
+      clearTimeout(idle)
+      setWheelPanning(isPanWheel(event))
+      idle = setTimeout(() => setWheelPanning(false), 160)
+      setView(v => wheelNavigation(v, event, { x: event.clientX - rect.left, y: event.clientY - rect.top }, element.clientHeight).view)
     }
     element.addEventListener('wheel', wheel, { passive: false })
-    return () => element.removeEventListener('wheel', wheel)
+    return () => { clearTimeout(idle); element.removeEventListener('wheel', wheel) }
   }, [])
   const addTopic = (parent?: MapNode, point?: { x: number; y: number }) => {
     if (!editor.graph || !editable) return
@@ -126,6 +133,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
   const start = (event: ReactPointerEvent, id?: string) => {
     if (!editor.graph || event.button !== 0 || gesture.current) return
     event.stopPropagation()
+    setWheelPanning(false)
     canvas.current?.focus({ preventScroll: true })
     if (connecting && id && editable && tool === 'select') {
       editor.commit(connectNodes(editor.graph, connecting.id, id, uniqueId(), connecting.side, undefined, connecting.offset)); setConnecting(null); return
@@ -232,8 +240,8 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
     <header className={styles.toolbar}>
       <div className={styles.brand}><Network size={19} /><strong>Mapa da rede</strong><span>{nodes.length} balões</span></div>
       <div className={styles.tools}>
-        <button aria-label="Selecionar e arrastar balões" aria-pressed={tool === 'select'} onClick={() => setTool('select')}><MousePointer2 size={17} /></button>
-        <button aria-label="Mover o mapa" aria-pressed={tool === 'pan'} onClick={() => { setTool('pan'); setConnecting(null) }}><Hand size={17} /></button>
+        <button aria-label="Selecionar e arrastar balões" aria-pressed={tool === 'select' && !wheelPanning} onClick={() => setTool('select')}><MousePointer2 size={17} /></button>
+        <button aria-label="Mover o mapa" aria-pressed={tool === 'pan' || wheelPanning} onClick={() => { setTool('pan'); setConnecting(null) }}><Hand size={17} /></button>
         <button disabled={!editable || !selected.length} title="Duplicar (Ctrl + D)" onClick={() => paste(copySelection())}><Copy size={16} /> Duplicar</button>
         <button disabled={!editable || !clipboard} title="Colar (Ctrl + V)" onClick={() => paste()}><ClipboardPaste size={16} /> Colar</button>
         <button disabled={!editable || !selected.length} onClick={() => { if (graph) setSelected(branchSelection(graph, selected).filter(id => nodeMap.has(id))) }}>Selecionar árvore</button>
@@ -260,7 +268,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
     {!tv && hint && <p className={styles.message} role="status">{hint} <button onClick={() => setHint('')}>Fechar</button></p>}
     {connecting && editable && <p className={styles.message} role="status">Clique no balão de destino para conectar. Esc cancela.</p>}
     {tv && <button type="button" className={styles.exitTv} onClick={onExitTv}>Sair do modo TV</button>}
-    <div ref={canvas} className={styles.canvas} tabIndex={0} aria-label="Área do mapa: Mouse seleciona; Hand move a câmera; roda ajusta zoom" data-tool={tool} data-locked={!editable}
+    <div ref={canvas} className={styles.canvas} tabIndex={0} aria-label="Área do mapa: Mouse seleciona; Hand move a câmera; dois dedos navegam; Ctrl + roda ajusta zoom" data-tool={wheelPanning ? 'pan' : tool} data-locked={!editable}
       style={{ backgroundPosition: `${view.x}px ${view.y}px`, backgroundSize: `${GRID * view.zoom}px ${GRID * view.zoom}px`,
         backgroundColor: graph?.appearance?.background ?? undefined, backgroundImage: graph?.appearance?.showGrid === false ? 'none' : undefined,
         '--grid-color': graph?.appearance?.gridColor ?? 'var(--border-soft)' } as CSSProperties}
@@ -309,7 +317,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
             role="button" tabIndex={0} aria-label={`${host?.name ?? n.label}, ${status}`} aria-pressed={selected.includes(n.id)}
             onPointerDown={e => start(e, n.id)} onDoubleClick={e => { e.stopPropagation(); if (tool !== 'select') return; if (host) onDetails(host.id); else choose(n.id) }}
             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(n.id) } }}>
-            {n.shape === 'cloud' && <svg className={styles.cloudOutline} viewBox="0 0 216 120" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d={CLOUD_PATH} /></svg>}
+            {n.shape === 'cloud' && <svg className={styles.cloudOutline} viewBox={`0 0 216 ${CLOUD_VIEW_HEIGHT}`} preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d={CLOUD_PATH} /></svg>}
             <div className={styles.nodeContent} data-map-text>
             <span className={styles.nodeTitle}>{host && <i className={styles.dot} data-status={host.suspended ? 'unknown' : host.status} />}<strong>{host?.name ?? n.label}</strong></span>
             {(host?.address ?? n.subtitle ?? 'Tópico de organização') && <span className={styles.address}>{host?.address ?? n.subtitle ?? 'Tópico de organização'}</span>}
@@ -332,7 +340,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
         <button aria-label="Aumentar zoom" onClick={() => zoom(1.2)}><Plus size={17} /></button><button aria-label="Enquadrar mapa" onClick={fit}><Maximize size={17} /></button>
       </div>
     </div>
-    <footer className={styles.help}><span>Mouse: selecionar/arrastar balões e seleção por área • Hand: mover câmera • Duplo clique na linha: criar dobra • Arraste o ponto azul para ajustar • Duplo clique no ponto: remover</span>
+    <footer className={styles.help}><span>Mouse: selecionar/arrastar balões e seleção por área • Hand: mover câmera • Dois dedos no touchpad: navegar • Ctrl + gesto/roda: zoom • Duplo clique na linha: criar dobra • Arraste o ponto azul para ajustar • Duplo clique no ponto: remover</span>
       <details><summary>Atalhos e informações</summary><p>Ctrl + A: selecionar tudo • Ctrl + C / V / D: copiar/colar/duplicar • Shift + clique: seleção múltipla • N: tópico • Shift + N: subtópico • C: conectar • setas: mover seleção • Delete: excluir tópico/conexão • Ctrl + Z / Ctrl + Shift + Z: desfazer/refazer • Ctrl + S: salvar.</p><p>Conexões são organizadas manualmente e não comprovam ligações físicas descobertas por ping. Salve para compartilhar o mapa com outras telas.</p></details>
     </footer>
   </section>

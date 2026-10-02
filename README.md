@@ -2,6 +2,14 @@
 
 Painel web para acompanhar a disponibilidade de dispositivos de rede por ICMP. O backend executa as verificações, reconhece quedas e retornos e envia os dados ao frontend em tempo real por WebSocket.
 
+## Correções da v1.9.3
+
+`npm run dev` inicia o backend e aguarda `/api/health` confirmar que armazenamento, migração e monitoramento estão prontos antes de iniciar o Vite. A espera usa a porta do backend, respeitando as variáveis de ambiente e `.env` de backend/raiz. Após 60 segundos sem API válida, informa o motivo e encerra os processos; Ctrl + C encerra ambos.
+
+No mapa, o gesto de rolagem com dois dedos no touchpad move a câmera horizontal e verticalmente, inclusive com Mouse selecionado. Hand aparece ativo durante os eventos do gesto e Mouse retorna ao fim deles; o arraste/seleção com um dedo permanece disponível. Ctrl/Cmd + gesto ou roda e o gesto de pinça reconhecido pelo navegador aplicam zoom no ponto do cursor; os botões +/− continuam disponíveis. Eventos de roda em pixels movem o mapa, portanto alguns mouses com rolagem suave também navegam (use Ctrl + roda para zoom). O navegador não fornece uma contagem confiável de dedos: o término é inferido pela pausa dos eventos, incluindo eventual inércia do touchpad. A rolagem dos painéis e de textos longos permanece independente.
+
+Nuvem ajustada à referência fornecida: base reta, lobo principal grande à esquerda e menor à direita, com pontos de conexão seguindo o contorno. A pasta fixa de dados permanece a mesma.
+
 ## Novidades da v1.9.2
 
 - Blocos adicionais de título, subtítulo ou texto dentro de cada balão, com edição, remoção e ordenação. Campos multilinha aceitam Shift + Enter (Enter também cria uma nova linha). Use Aplicar textos/blocos e depois Salvar mapa.
