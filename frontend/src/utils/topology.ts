@@ -3,8 +3,10 @@ export const GRID = 24, NODE_WIDTH = 216, NODE_HEIGHT = 96, CORNER_RADIUS = 10
 export const uniqueId = () => `map-${Array.from(crypto.getRandomValues(new Uint8Array(16)), n => n.toString(16).padStart(2, '0')).join('')}`
 export const clampCoordinate = (value: number) => Math.max(-200000, Math.min(200000, value))
 export const snap = (value: number) => clampCoordinate(Math.round(value / GRID) * GRID)
-export const snapPoint = (point: MapPoint): MapPoint => ({ x: snap(point.x), y: snap(point.y) })
+export const snapBend = (value: number) => clampCoordinate(Math.round(value / (GRID / 2)) * (GRID / 2))
+export const snapPoint = (point: MapPoint): MapPoint => ({ x: snapBend(point.x), y: snapBend(point.y) })
 export function nodeSize(node: MapNode) {
+  if (node.kind === 'junction') return { width: 12, height: 12 }
   const defaultSize = node.shape === 'circle' || node.shape === 'diamond' ? { width: 144, height: 144 }
     : node.shape === 'cloud' ? { width: 216, height: 144 } : node.shape === 'ellipse' ? { width: 216, height: 120 }
       : node.shape === 'pill' ? { width: 216, height: 72 } : { width: NODE_WIDTH, height: NODE_HEIGHT }
@@ -22,7 +24,7 @@ export function nodeSize(node: MapNode) {
 /** Device names/status remain owned by monitoring, not by this visual document. */
 export function reconcileGraph(graph: Graph, hosts: { id: string; name: string; group: string }[]): Graph {
   const hostIds = new Set(hosts.map(h => h.id))
-  const nodes = graph.nodes.filter(n => !n.hostId || hostIds.has(n.hostId)).map(n => ({ ...n, x: snap(n.x), y: snap(n.y),
+  const nodes = graph.nodes.filter(n => !n.hostId || hostIds.has(n.hostId)).map(n => ({ ...n, x: n.kind === 'junction' ? n.x : snap(n.x), y: n.kind === 'junction' ? n.y : snap(n.y),
     label: n.hostId ? hosts.find(h => h.id === n.hostId)!.name : n.label }))
   const existing = new Set(nodes.flatMap(n => n.hostId ? [n.hostId] : []))
   const right = nodes.length ? Math.max(...nodes.map(n => n.x + nodeSize(n).width)) + 84 : 0
@@ -96,6 +98,7 @@ const cloudContour: MapPoint[] = (() => {
   return points
 })()
 export function anchor(node: MapNode, side: MapSide, offset = .5): MapPoint {
+  if (node.kind === 'junction') return { x: node.x + 6, y: node.y + 6 }
   const { width, height } = nodeSize(node)
   const horizontal = side === 'top' || side === 'bottom'
   if (node.shape === 'ellipse' || node.shape === 'circle') {
@@ -272,4 +275,27 @@ export function freePortOffsets(edges: MapEdge[]): Map<string, number> {
     positions.push(edge[end === 'source' ? 'sourceOffset' : 'targetOffset'] ?? .5); used.set(key, positions)
   }
   return new Map([...used].map(([key, positions]) => [key, availablePortOffset(positions)]))
+}
+
+/** Split a straight segment at its center. Each new segment offers another spaced +. */
+export function junctionPoint(source: MapNode, target: MapNode, edge: MapEdge) {
+  const points = edgePoints(source, target, edge)
+  let segment = 0, length = 0
+  for (let i = 0; i < points.length - 1; i++) {
+    const size = Math.hypot(points[i + 1]!.x - points[i]!.x, points[i + 1]!.y - points[i]!.y)
+    if (size > length) { length = size; segment = i }
+  }
+  if (length < 48) return null
+  const a = points[segment]!, b = points[segment + 1]!
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, segment }
+}
+export function splitConnection(graph: Graph, geometry: MapEdge, junctionId: string, secondId: string): Graph {
+  if (graph.nodes.length >= 600 || graph.edges.length >= 2000 || graph.nodes.some(n => n.id === junctionId) || graph.edges.some(e => e.id === secondId)) return graph
+  const source = graph.nodes.find(n => n.id === geometry.source), target = graph.nodes.find(n => n.id === geometry.target)
+  if (!source || !target || !graph.edges.some(e => e.id === geometry.id)) return graph
+  const point = junctionPoint(source, target, geometry)
+  if (!point) return graph
+  const first: MapEdge = { ...geometry, target: junctionId, targetSide: undefined, targetOffset: undefined, bends: geometry.bends?.slice(0, point.segment) }
+  const second: MapEdge = { ...geometry, id: secondId, source: junctionId, sourceSide: undefined, sourceOffset: undefined, label: '', bends: geometry.bends?.slice(point.segment) }
+  return { ...graph, nodes: [...graph.nodes, { id: junctionId, kind: 'junction', label: 'Junção', x: point.x - 6, y: point.y - 6, color: 'neutral', outline: geometry.stroke }], edges: [...graph.edges.map(e => e.id === geometry.id ? first : e), second] }
 }

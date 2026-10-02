@@ -3,7 +3,7 @@ import { Network, Plus, Minus, Maximize, Undo2, Redo2, Save, MousePointer2, Link
 import type { HostSnapshot } from '../../types/monitor'
 import type { Graph, MapNode, MapSide, Viewport } from '../../types/topology'
 import { useTopology } from '../../hooks/useTopology'
-import { GRID, CLOUD_VIEW_HEIGHT, CLOUD_PATH, anchor, resolvedEdges, freePortOffsets, translateSelection, rectangleSelection, selectionFragment, cloneFragment, branchSelection, connectNodes, edgePoints, edgeRoute, fitNodes, initialGraph, insertBend, nodeSize, snap, snapPoint, uniqueId, worldPoint, zoomAt } from '../../utils/topology'
+import { junctionPoint, splitConnection, GRID, CLOUD_VIEW_HEIGHT, CLOUD_PATH, anchor, resolvedEdges, freePortOffsets, translateSelection, rectangleSelection, selectionFragment, cloneFragment, branchSelection, connectNodes, edgePoints, edgeRoute, fitNodes, initialGraph, insertBend, nodeSize, snap, snapPoint, uniqueId, worldPoint, zoomAt } from '../../utils/topology'
 import { createDevice } from '../../services/monitor-api'
 import { wheelNavigation, isPanWheel } from '../../utils/map-navigation'
 import { formatLatency } from '../../utils/formatters'
@@ -198,6 +198,19 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
     } else setConnecting(connecting?.id === id && connecting.side === side ? null : { id, side, offset: freePort(id, side) })
     setSelected([id]); setEdgeId(null)
   }
+  const connectLine = (id: string) => {
+    if (!editable || !editor.graph) return
+    const geometry = routedEdges.find(e => e.id === id)
+    if (!geometry) return
+    if (editor.graph.edges.length + (connecting ? 2 : 1) > 2000) { setHint('Limite de conexões atingido.'); return }
+    const junctionId = uniqueId()
+    let next = splitConnection(editor.graph, geometry, junctionId, uniqueId())
+    if (next === editor.graph) { setHint('Sem espaço para outra junção nesta linha.'); return }
+    if (connecting) next = connectNodes(next, connecting.id, junctionId, uniqueId(), connecting.side, undefined, connecting.offset)
+    editor.commit(next); setSelected([junctionId]); setEdgeId(null)
+    setConnecting(connecting ? null : { id: junctionId })
+    setHint('Junção criada. Conecte a um balão ou ao + de outra linha. Salve o mapa para manter a ramificação.')
+  }
   const addBend = (raw?: { x: number; y: number }) => {
     if (!editor.graph || !edge || !editable) return
     const source = nodeMap.get(edge.source), target = nodeMap.get(edge.target)
@@ -266,7 +279,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
     </div>
     {!tv && editor.error && <p className={styles.message} role="alert">{editor.error} As alterações locais foram mantidas.</p>}
     {!tv && hint && <p className={styles.message} role="status">{hint} <button onClick={() => setHint('')}>Fechar</button></p>}
-    {connecting && editable && <p className={styles.message} role="status">Clique no balão de destino para conectar. Esc cancela.</p>}
+    {connecting && editable && <p className={styles.message} role="status">Clique no balão ou no + de uma linha para conectar. Esc cancela.</p>}
     {tv && <button type="button" className={styles.exitTv} onClick={onExitTv}>Sair do modo TV</button>}
     <div ref={canvas} className={styles.canvas} tabIndex={0} aria-label="Área do mapa: Mouse seleciona; Hand move a câmera; dois dedos navegam; Ctrl + roda ajusta zoom" data-tool={wheelPanning ? 'pan' : tool} data-locked={!editable}
       style={{ backgroundPosition: `${view.x}px ${view.y}px`, backgroundSize: `${GRID * view.zoom}px ${GRID * view.zoom}px`,
@@ -281,8 +294,9 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
       {!graph && <p className={styles.loading}>{editor.busy ? 'Carregando o mapa…' : ready ? 'Recarregue para tentar abrir o mapa.' : 'Aguardando o monitoramento…'}</p>}
       {graph && !nodes.length && <p className={styles.loading}>Nenhum dispositivo visível. Cadastre dispositivos ou adicione um tópico.</p>}
       <div className={styles.world} style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
-        <svg className={styles.edges} aria-label="Conexões do mapa">
+        <svg className={styles.edges} data-connecting={Boolean(connecting)} aria-label="Conexões do mapa">
           {edges.map(e => {
+            const port = junctionPoint(nodeMap.get(e.source)!, nodeMap.get(e.target)!, e)
             const curve = edgeRoute(nodeMap.get(e.source)!, nodeMap.get(e.target)!, e)
             return <g key={e.id} data-selected={e.id === edgeId}>
               <path className={styles.edgeLine} d={curve.path} style={{ stroke: e.stroke ?? undefined, strokeWidth: e.lineWidth ?? undefined,
@@ -298,6 +312,9 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
                 }}
                 onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setEdgeId(e.id); setSelected([]) } }} />
               {editable && tool === 'select' && (e.id === edgeId || selected.includes(e.source) || selected.includes(e.target)) && edgePoints(nodeMap.get(e.source)!, nodeMap.get(e.target)!, e).filter((_, i, points) => i === 0 || i === points.length - 1).map((point, index) => <circle key={`anchor-${index}`} className={styles.endpoint} cx={point.x} cy={point.y} r={4} />)}
+              {editable && tool === 'select' && port && <foreignObject x={port.x - 12} y={port.y - 12} width={24} height={24} className={styles.linePort}>
+                <button type="button" title="Criar junção nesta linha" aria-label="Conectar nesta linha" onPointerDown={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); connectLine(e.id) }}><Plus size={14} /></button>
+              </foreignObject>}
               {e.label && <text x={curve.x} y={curve.y - 10} textAnchor="middle" className={styles.edgeLabel} style={{ fill: e.labelColor ?? undefined, stroke: graph.appearance?.background ?? undefined }}>{e.label.split("\n").map((line, index) => <tspan key={index} x={curve.x} dy={index ? 15 : 0}>{line}</tspan>)}</text>}
               {e.id === edgeId && editable && tool === 'select' && e.bends?.map((point, index) => <circle key={index} cx={point.x} cy={point.y} r={10} className={styles.bend}
                 role="button" tabIndex={0} aria-label={`Ponto ${index + 1} da conexão; arraste para ajustar, Delete para remover`}
@@ -311,7 +328,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
           const host = n.hostId ? hostMap.get(n.hostId) : undefined
           const status = host?.suspended ?? (host ? { online: 'On-line', offline: 'Off-line', unknown: 'Verificando' }[host.status] : 'Tópico')
           const size = nodeSize(n)
-          return <div key={n.id} className={styles.node} data-color={n.color} data-shape={n.shape ?? 'rounded'} data-selected={selected.includes(n.id)} data-source={connecting?.id === n.id} data-node-id={n.id} data-text-align={n.textAlign ?? (['ellipse', 'circle', 'cloud', 'diamond'].includes(n.shape ?? '') ? 'center' : 'left')}
+          return <div key={n.id} className={styles.node} data-kind={n.kind} data-color={n.color} data-shape={n.shape ?? 'rounded'} data-selected={selected.includes(n.id)} data-source={connecting?.id === n.id} data-node-id={n.id} data-text-align={n.textAlign ?? (['ellipse', 'circle', 'cloud', 'diamond'].includes(n.shape ?? '') ? 'center' : 'left')}
             style={{ left: n.x, top: n.y, width: size.width, height: size.height,
               '--node-fill': n.fill ?? 'var(--surface)', '--node-outline': n.outline ?? 'var(--node-color)', '--node-text': n.textColor ?? 'var(--text)' } as CSSProperties}
             role="button" tabIndex={0} aria-label={`${host?.name ?? n.label}, ${status}`} aria-pressed={selected.includes(n.id)}
@@ -324,7 +341,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
             <span className={styles.nodeBottom}><span>{host ? status : n.caption ?? 'Tópico'}</span>{host && <b>{formatLatency(host.latencyMs)}</b>}</span>
             {n.texts?.filter(text => text.text).map(text => <div key={text.id} className={styles.extraText} data-kind={text.kind} style={{ textAlign: text.align }}>{text.text}</div>)}
             </div>
-            {editable && tool === 'select' && (['top', 'right', 'bottom', 'left'] as const).map(side => <button key={side} type="button" className={styles.port} data-side={side} style={{ left: anchor(n, side, freePort(n.id, side)).x - n.x, top: anchor(n, side, freePort(n.id, side)).y - n.y }} title={`Conectar pelo lado ${ { top: 'superior', right: 'direito', bottom: 'inferior', left: 'esquerdo' }[side]}`}
+            {editable && tool === 'select' && (n.kind === 'junction' ? ['right'] as const : ['top', 'right', 'bottom', 'left'] as const).map(side => <button key={side} type="button" className={styles.port} data-side={side} style={{ left: anchor(n, side, freePort(n.id, side)).x - n.x + (n.kind === 'junction' ? 20 : 0), top: anchor(n, side, freePort(n.id, side)).y - n.y }} title={`Conectar pelo lado ${ { top: 'superior', right: 'direito', bottom: 'inferior', left: 'esquerdo' }[side]}`}
               aria-label={`Conectar ${n.label} pelo lado ${ { top: 'superior', right: 'direito', bottom: 'inferior', left: 'esquerdo' }[side]}`}
               aria-pressed={connecting?.id === n.id && connecting.side === side}
               onPointerDown={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}
@@ -340,7 +357,7 @@ export function NetworkMap({ hosts, visibleIds, ready, tv, onDetails, onDevices,
         <button aria-label="Aumentar zoom" onClick={() => zoom(1.2)}><Plus size={17} /></button><button aria-label="Enquadrar mapa" onClick={fit}><Maximize size={17} /></button>
       </div>
     </div>
-    <footer className={styles.help}><span>Mouse: selecionar/arrastar balões e seleção por área • Hand: mover câmera • Dois dedos no touchpad: navegar • Ctrl + gesto/roda: zoom • Duplo clique na linha: criar dobra • Arraste o ponto azul para ajustar • Duplo clique no ponto: remover</span>
+    <footer className={styles.help}><span>Mouse: selecionar/arrastar balões e seleção por área • Hand: mover câmera • Dois dedos no touchpad: navegar • Ctrl + gesto/roda: zoom • + na linha: criar ramificação • Duplo clique na linha: criar dobra • Arraste o ponto azul em passos de meia célula para ajustar • Duplo clique no ponto: remover</span>
       <details><summary>Atalhos e informações</summary><p>Ctrl + A: selecionar tudo • Ctrl + C / V / D: copiar/colar/duplicar • Shift + clique: seleção múltipla • N: tópico • Shift + N: subtópico • C: conectar • setas: mover seleção • Delete: excluir tópico/conexão • Ctrl + Z / Ctrl + Shift + Z: desfazer/refazer • Ctrl + S: salvar.</p><p>Conexões são organizadas manualmente e não comprovam ligações físicas descobertas por ping. Salve para compartilhar o mapa com outras telas.</p></details>
     </footer>
   </section>

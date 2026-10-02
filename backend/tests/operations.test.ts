@@ -63,7 +63,7 @@ for (const maintenance of [false, true]) test(`suspension suppresses probes and 
     assert.equal(f.calls(), count)
     assert.equal(f.service.getSnapshot().summary.activeIncidents, 0)
     assert.ok(f.service.getSnapshot().hosts[0]!.suspended)
-    assert.equal(f.service.getHostEvents('a')[0]!.type, 'interrupted')
+    assert.equal(f.service.getHostEvents('a').find(e => e.type === 'interrupted')!.type, 'interrupted')
     await f.service.saveConfiguration(base)
     f.set(true); await f.service.runCycle(); await f.service.runCycle()
     assert.equal(f.service.getSnapshot().hosts[0]!.status, 'online')
@@ -78,7 +78,7 @@ test('CRUD, restart persistence, concurrent refresh/save, changing address and e
     const config = { ...base, hosts: [{ ...host, name: 'New name', address: '::1', group: 'Garagem' }, { ...host, id: 'b' }] }
     await Promise.all([f.service.runCycle(), f.service.saveConfiguration(config)])
     assert.equal(f.service.getSnapshot().hosts.length, 2)
-    assert.equal(f.service.getHostEvents('a')[0]!.type, 'interrupted')
+    assert.equal(f.service.getHostEvents('a').find(e => e.type === 'interrupted')!.type, 'interrupted')
     assert.deepEqual(await new ConfigRepository(join(f.dir, 'config.json')).load(), config)
     await Promise.all([f.service.saveConfiguration(base), f.service.runCycle(), f.service.saveConfiguration({ ...base, hosts: [] })])
     assert.equal(f.service.getSnapshot().hosts.length, 0)

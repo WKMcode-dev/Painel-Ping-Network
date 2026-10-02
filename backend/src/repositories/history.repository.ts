@@ -6,7 +6,8 @@ import { env } from '../config/env.js'
 import type { StatusEvent } from '../types/monitor.js'
 
 export const eventSchema = z.object({
-  id: z.string(), hostId: z.string(), type: z.enum(['down', 'recovery', 'interrupted']),
+  id: z.string(), hostId: z.string(), type: z.enum(['down', 'recovery', 'interrupted', 'gap', 'dns_change', 'paused', 'maintenance']),
+  firstFailureAt: z.string().datetime().optional(), confirmedAt: z.string().datetime().optional(), previousCheckAt: z.string().datetime().nullable().optional(),
   timestamp: z.string().datetime(), durationMs: z.number().nonnegative().nullable(), message: z.string(),
 })
 const storagePath = dataFile('status-history.json')

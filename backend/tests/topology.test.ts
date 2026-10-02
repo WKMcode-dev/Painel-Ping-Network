@@ -7,7 +7,7 @@ import { createServer } from 'node:http'
 import express from 'express'
 import { TopologyRepository, TopologyConflict, topologySchema } from '../src/repositories/topology.repository.js'
 import { createTopologyRouter } from '../src/routes/topology.routes.js'
-import { initialGraph, reconcileGraph, connectNodes, zoomAt, worldPoint, fitNodes, edgeCurve, edgeRoute, edgePoints, insertBend, nodeSize, snap, CORNER_RADIUS } from '../../frontend/src/utils/topology.js'
+import { initialGraph, reconcileGraph, connectNodes, zoomAt, worldPoint, fitNodes, edgeCurve, edgeRoute, edgePoints, insertBend, nodeSize, snap, snapBend, CORNER_RADIUS } from '../../frontend/src/utils/topology.js'
 const devices = [{ id: 'a', name: 'Router A', group: 'Garagem' }, { id: 'b', name: 'Router B', group: 'TI' }]
 
 test('map migration starts empty and revision prevents concurrent overwrite', async () => {
@@ -21,7 +21,7 @@ test('map migration starts empty and revision prevents concurrent overwrite', as
     assert.ok(results.some(r => r.status === 'rejected' && r.reason instanceof TopologyConflict))
     assert.equal((await repo.load()).revision, 1)
     const saved = await repo.save({ revision: 1, graph: { ...graph, nodes: graph.nodes.map(n => ({ ...n, x: n.x + 125 })) } })
-    assert.deepEqual(await new TopologyRepository(join(dir, 'map.json')).load(), saved)
+    assert.deepEqual(await new TopologyRepository(join(dir, 'map.json')).load(), JSON.parse(JSON.stringify(saved)))
     await writeFile(join(dir, 'map.json'), '{broken')
     await assert.rejects(repo.load())
   } finally { await rm(dir, { recursive: true, force: true }) }
@@ -91,8 +91,8 @@ test('legacy edges stay straight; inserted bends snap to grid with corners cappe
   assert.equal(straight.path.includes('Q'), false)
   const first = insertBend(legacy, source, target, { x: 234, y: 21 })
   assert.ok(first.bends && first.bends.length === 1)
-  assert.equal(first.bends[0]!.x, snap(234))
-  assert.equal(first.bends[0]!.y, snap(21))
+  assert.equal(first.bends[0]!.x, snapBend(234))
+  assert.equal(first.bends[0]!.y, snapBend(21))
   const curved = edgeRoute(source, target, first)
   assert.match(curved.path, / Q /)
   assert.ok(CORNER_RADIUS <= 10)
@@ -266,7 +266,7 @@ test('multiline blocks, alignment and anchors persist across reload without losi
     graph.edges[0]!.sourceOffset = .25
     const repository = new TopologyRepository(join(dir, 'map.json'))
     const saved = await repository.save({ revision: 0, graph })
-    assert.deepEqual(await new TopologyRepository(join(dir, 'map.json')).load(), saved)
+    assert.deepEqual(await new TopologyRepository(join(dir, 'map.json')).load(), JSON.parse(JSON.stringify(saved)))
     assert.ok(nodeSize(graph.nodes[0]!).height > 96)
     assert.equal(nodeSize({ ...graph.nodes[0]!, height: 120 }).height, 120)
     const badText = { ...graph.nodes[0]!, texts: [{ id: 'x', kind: 'text', text: 'a'.repeat(4001) }] }
@@ -291,4 +291,46 @@ test('distributed anchors follow ellipse and cloud contours rather than their re
     assert.ok(cloud.y >= node.y - 1 && cloud.y <= node.y + 121)
   }
   assert.ok(anchor({ ...node, shape: 'cloud' }, 'top', .25).y > node.y + 5)
+})
+
+test('line junctions preserve endpoints, bends and colors and support line-to-line branches', async () => {
+  const { splitConnection, junctionPoint, resolvedEdges, anchor, translateSelection } = await import('../../frontend/src/utils/topology.js')
+  const graph = { nodes: [
+    { id: 'a', label: 'A', x: 0, y: 0, color: 'blue' as const },
+    { id: 'b', label: 'B', x: 600, y: 0, color: 'blue' as const },
+    { id: 'c', label: 'C', x: 0, y: 300, color: 'blue' as const },
+    { id: 'd', label: 'D', x: 600, y: 300, color: 'blue' as const },
+  ], edges: [{ id: 'ab', source: 'a', target: 'b', label: 'uplink', stroke: '#123456', bends: [{ x: 360, y: 48 }] }, { id: 'cd', source: 'c', target: 'd', label: '' }] }
+  const geometry = resolvedEdges(graph)[0]!, before = edgePoints(graph.nodes[0]!, graph.nodes[1]!, geometry)
+  const point = junctionPoint(graph.nodes[0]!, graph.nodes[1]!, geometry)!
+  let next = splitConnection(graph, geometry, 'junction1', 'part1')
+  const junction = next.nodes.find(n => n.id === 'junction1')!
+  assert.deepEqual(anchor(junction, 'left'), { x: point.x, y: point.y })
+  assert.deepEqual(reconcileGraph(next, []).nodes.find(n => n.id === junction.id), junction)
+  const first = next.edges.find(e => e.id === 'ab')!, second = next.edges.find(e => e.id === 'part1')!
+  assert.deepEqual(edgePoints(next.nodes[0]!, junction, first)[0], before[0])
+  assert.deepEqual(edgePoints(junction, next.nodes[1]!, second).at(-1), before.at(-1))
+  assert.equal(second.stroke, '#123456'); assert.equal(second.label, '')
+  assert.deepEqual([...(first.bends ?? []), ...(second.bends ?? [])], geometry.bends)
+  next = splitConnection(next, resolvedEdges(next).find(e => e.id === 'cd')!, 'junction2', 'part2')
+  next = connectNodes(next, 'junction1', 'junction2', 'bridge')
+  assert.ok(topologySchema.safeParse(next).success)
+  const moved = translateSelection(next, next.nodes.map(n => n.id), 24, 48)
+  assert.deepEqual(anchor(moved.nodes.find(n => n.id === junction.id)!, 'top'), { x: point.x + 24, y: point.y + 48 })
+  const dir = await mkdtemp(join(tmpdir(), 'ping-junction-'))
+  try {
+    const repo = new TopologyRepository(join(dir, 'map.json'))
+    const saved = await repo.save({ revision: 0, graph: next })
+    assert.deepEqual(await new TopologyRepository(join(dir, 'map.json')).load(), JSON.parse(JSON.stringify(saved)))
+  } finally { await rm(dir, { recursive: true, force: true }) }
+})
+
+test('bends can occupy half-grid positions and keep them across reconciliation and group moves', async () => {
+  const { snapPoint, translateSelection } = await import('../../frontend/src/utils/topology.js')
+  assert.deepEqual(snapPoint({ x: 35, y: 60 }), { x: 36, y: 60 })
+  const graph = initialGraph(devices), edge = graph.edges[0]!
+  edge.bends = [{ x: 36, y: 60 }]
+  const next = reconcileGraph(graph, devices)
+  assert.deepEqual(next.edges[0]!.bends, [{ x: 36, y: 60 }])
+  assert.deepEqual(translateSelection(next, [edge.source, edge.target], 24, 24).edges[0]!.bends, [{ x: 60, y: 84 }])
 })

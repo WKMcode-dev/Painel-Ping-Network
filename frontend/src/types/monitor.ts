@@ -1,3 +1,6 @@
+export interface ServiceCheck { id: string; type: 'tcp' | 'http'; port?: number; url?: string; expectedStatus?: number }
+export interface ServiceResult { id: string; type: 'tcp' | 'http'; status: 'available' | 'unavailable' | 'unknown'; checkedAt: string; latencyMs: number | null; error?: string; statusCode?: number; resolvedAddress?: string }
+
 export type HostStatus = 'online' | 'offline' | 'unknown'
 
 export interface HistoryPoint {
@@ -9,10 +12,13 @@ export interface HistoryPoint {
 export interface StatusEvent {
   id: string
   hostId: string
-  type: 'down' | 'recovery' | 'interrupted'
+  type: 'down' | 'recovery' | 'interrupted' | 'gap' | 'dns_change' | 'paused' | 'maintenance'
   timestamp: string
   durationMs: number | null
   message: string
+  firstFailureAt?: string
+  confirmedAt?: string
+  previousCheckAt?: string | null
 }
 
 export interface HostSnapshot {
@@ -26,6 +32,7 @@ export interface HostSnapshot {
   maintenanceEnd?: string | null
   suspended?: string
   description?: string
+  checks?: ServiceCheck[]
   status: HostStatus
   latencyMs: number | null
   averageLatencyMs: number | null
@@ -41,10 +48,29 @@ export interface HostSnapshot {
   lastTransitionAt: string | null
   currentDowntimeMs: number
   consecutiveFailures: number
+  resolvedAddress?: string | null
+  dataQuality?: 'fresh' | 'stale' | 'collector-error' | 'paused' | 'maintenance' | 'checking'
+  checkAgeMs?: number | null
+  p95LatencyMs?: number | null
+  jitterMs?: number | null
+  sampleCount?: number
+  sampleWindowStart?: string | null
+  sampleWindowEnd?: string | null
+  observedMs?: number
+  onlineObservedMs?: number
+  offlineObservedMs?: number
+  unknownMs?: number
+  pausedMs?: number
+  maintenanceMs?: number
+  responsePct?: number
+  firstFailureAt?: string | null
+  downConfirmedAt?: string | null
+  serviceChecks?: ServiceResult[]
   history: HistoryPoint[]
 }
 
 export interface DashboardSnapshot {
+  staleAfterMs?: number
   intervalMs?: number
   generatedAt: string
   summary: {

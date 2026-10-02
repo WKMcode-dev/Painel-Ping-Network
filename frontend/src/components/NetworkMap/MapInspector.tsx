@@ -41,6 +41,7 @@ export function MapInspector({ node, edge, graph, host, commit, onDetails, onCon
   const changeEdge = (changes: Partial<MapEdge>) => { if (edge) commit({ ...graph, edges: graph.edges.map(x => x.id === edge.id ? { ...x, ...changes } : x) }) }
   const edgeGeometry = useMemo(() => edge ? resolvedEdges(graph).find(e => e.id === edge.id) : undefined, [edge, graph])
   const dimensions = node ? nodeSize(node) : null
+  if (node?.kind === 'junction') return <aside className={styles.inspector} onPointerDown={e => e.stopPropagation()}><strong>Junção de conexões</strong><p>Arraste o ponto para ajustar a ramificação. Os + nas linhas criam novas junções com espaçamento.</p><ColorControl label="Cor da junção" value={node.outline} fallback="#303237" onChange={outline => changeNode({ outline })} onClear={() => changeNode({ outline: undefined })} presets /><button onClick={onConnect}>Conectar</button><button onClick={onDelete}>Remover junção e suas ligações</button></aside>
   return <aside className={styles.inspector} aria-label="Elemento selecionado" onPointerDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}>
     <strong>{edge ? 'Conexão' : host ? host.name : 'Tópico'}</strong>
     {host && <><span>{host.address}</span><span>{host.suspended ?? { online: 'On-line', offline: 'Off-line', unknown: 'Verificando' }[host.status]}</span><button onClick={() => onDetails(host.id)}>Abrir status e histórico</button></>}

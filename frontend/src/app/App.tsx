@@ -54,7 +54,7 @@ export default function App() {
   const [devicesOpen, setDevicesOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const currentHosts = useMemo(() => snapshot.hosts.map(h => currentHost(h, connection === 'live', panel.now, snapshot.intervalMs)), [snapshot.hosts, snapshot.intervalMs, connection, panel.now])
+  const currentHosts = useMemo(() => snapshot.hosts.map(h => currentHost(h, connection === 'live', panel.now, snapshot.intervalMs, snapshot.staleAfterMs)), [snapshot.hosts, snapshot.intervalMs, snapshot.staleAfterMs, connection, panel.now])
   const online = currentHosts.filter(h => h.status === 'online').length
   const offline = currentHosts.filter(h => h.status === 'offline').length
   const available = online + offline ? online / (online + offline) * 100 : 0

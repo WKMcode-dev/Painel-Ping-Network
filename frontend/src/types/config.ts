@@ -1,5 +1,6 @@
 export interface DeviceConfig {
   id: string; name: string; address: string; group: string; location: string; description?: string
+  checks?: import('./monitor').ServiceCheck[]
   enabled: boolean; maintenanceStart?: string | null; maintenanceEnd?: string | null
 }
 export interface MonitorConfig { hosts: DeviceConfig[]; failureThreshold: number; recoveryThreshold: number }

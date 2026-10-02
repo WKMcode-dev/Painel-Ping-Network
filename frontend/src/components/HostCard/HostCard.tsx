@@ -30,10 +30,11 @@ export function HostCard({ host, onSelect, readOnly = false }: HostCardProps) {
 
       <span className={styles.metrics}>
         <span><small>{isOffline ? 'Indisponível há' : 'Latência'}</small><b>{isOffline ? formatDuration(host.currentDowntimeMs) : formatLatency(host.latencyMs)}</b></span>
-        <span><small>Perda</small><b>{formatPercent(host.packetLossPct)}</b></span>
-        <span><small>Respostas na janela</small><b>{formatPercent(host.availabilityPct)}</b></span>
+        <span><small>Perda</small><b>{host.history.length ? formatPercent(host.packetLossPct) : '—'}</b></span>
+        <span><small>Respostas na janela</small><b>{host.history.length ? formatPercent(host.responsePct ?? host.availabilityPct) : '—'}</b></span>
       </span>
 
+      {!!host.serviceChecks?.length && <span className={styles.location}>Serviços: {host.serviceChecks.filter(check => check.status === 'available').length}/{host.serviceChecks.length} disponíveis{host.serviceChecks.some(check => check.status === 'unknown') ? ' · há verificações indisponíveis' : ''}</span>}
       <span className={styles.chart}>
         <Sparkline points={host.history} offline={isOffline} />
       </span>

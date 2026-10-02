@@ -1,6 +1,6 @@
 {
   "name": "painel-ping",
-  "version": "1.9.3",
+  "version": "1.10.0",
   "private": true,
   "workspaces": [
     "frontend",

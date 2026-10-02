@@ -2,6 +2,17 @@
 
 Painel web para acompanhar a disponibilidade de dispositivos de rede por ICMP. O backend executa as verificações, reconhece quedas e retornos e envia os dados ao frontend em tempo real por WebSocket.
 
+## Novidades da v1.10.0
+
+- Junções nas linhas: use o **+** de uma conexão e depois o balão ou o **+ de outra conexão** para criar ramificações. Cada novo trecho oferece mais espaço para junções. Cores e dobras são preservadas; salve o mapa depois de editar.
+- Dobras podem ocupar **meia célula (12 px)** da grade de 24 px; balões mantêm a grade principal.
+- Erros do coletor, dados antigos, reinício e suspensão são separados de quedas. Resultados atrasados após mudanças no cadastro são descartados; mudanças de IP resolvido por DNS são registradas.
+- Disponibilidade calculada pelo tempo observado, com tempo desconhecido, pausa e manutenção separados. Indicadores de tempo e amostras representam a sessão atual; o histórico de eventos continua persistente.
+- Perda/respostas ICMP mostram sua janela e amostras; latência inclui p95 e jitter. A tabela distingue primeira falha de confirmação.
+- Verificações opcionais TCP/HTTP em **Dispositivos**, com resultados separados do ICMP nos cards e detalhes.
+
+Consulte [as notas completas da v1.10.0](docs/releases/v1.10.0.md) para os critérios de medição e atualização. A pasta fixa de dados permanece a mesma.
+
 ## Correções da v1.9.3
 
 `npm run dev` inicia o backend e aguarda `/api/health` confirmar que armazenamento, migração e monitoramento estão prontos antes de iniciar o Vite. A espera usa a porta do backend, respeitando as variáveis de ambiente e `.env` de backend/raiz. Após 60 segundos sem API válida, informa o motivo e encerra os processos; Ctrl + C encerra ambos.
@@ -50,7 +61,7 @@ Tópicos permitem editar título, subtítulo e texto inferior; textos secundári
 
 - status **on-line**, **off-line** ou **verificando**;
 - latência atual, média, mínima e máxima;
-- perda de pacotes e percentual de disponibilidade da janela atual;
+- perda de pacotes/respostas na janela de amostras e disponibilidade no tempo observado da sessão;
 - TTL da última resposta;
 - horário da última verificação, queda, retorno e transição;
 - duração ao vivo de incidentes ativos;

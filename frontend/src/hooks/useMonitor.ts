@@ -23,7 +23,7 @@ export function useMonitor() {
       if (disposed) return
       lastMessage = Date.now()
       staleAfter = Math.max(30000, (value.intervalMs ?? 5000) * 3)
-      setSnapshot(value)
+      setSnapshot(previous => Date.parse(value.generatedAt) < Date.parse(previous.generatedAt) ? previous : value)
       setConnection('live')
     }
     const connect = async () => {
@@ -70,7 +70,8 @@ export function useMonitor() {
 
   const refresh = useCallback(async () => {
     if (connection !== 'live') return
-    setSnapshot(await requestRefresh())
+    const value = await requestRefresh()
+    setSnapshot(previous => Date.parse(value.generatedAt) < Date.parse(previous.generatedAt) ? previous : value)
   }, [connection])
   return { snapshot, connection, refresh }
 }

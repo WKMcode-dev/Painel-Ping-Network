@@ -15,7 +15,7 @@ for (const windows of [true, false]) {
       test(`parser windows=${windows}, exit=${code}, ${output || 'empty'}`, () => {
         const reply = /time|tempo/.test(output)
         const result = parsePing(output, code, windows)
-        assert.equal(result.alive, code === 0 && (!windows || reply))
+        assert.equal(result.alive, code === 0 && reply)
         if (!result.alive) assert.equal(result.latencyMs, null)
         if (result.alive && output.includes('<1')) assert.equal(result.latencyMs, 0)
       })
@@ -52,7 +52,7 @@ for (let permutation = 0; permutation < 81; permutation++) {
     let failures = 0, status = 'online', open = false, expectedEvents = 0, samples = 1
     for (const outcome of sequence) {
       f.set(outcome === 0, outcome === 2)
-      if (outcome === 2) { failures = 0; status = 'unknown' }
+      if (outcome === 2) { failures = 0; status = 'unknown'; if (open) { open = false; expectedEvents++ } }
       else {
         samples++
         failures = outcome === 0 ? 0 : failures + 1
@@ -77,14 +77,16 @@ test('simultaneous refresh requests share a complete cycle', async () => {
   assert.equal(f.calls(), before + 1)
 })
 
-test('restart closes a persisted incident without creating duplicate down', async () => {
+test('restart marks an unknown gap and starts a new incident without invented continuity', async () => {
   const down: StatusEvent = { id: 'down', hostId: 'test', type: 'down', timestamp: new Date(Date.now() - 60000).toISOString(), durationMs: null, message: 'down' }
   const f = fixture([down]); f.set(false)
   await f.service.initialize(); await f.service.stop(); await f.service.runCycle()
-  assert.equal(f.events.length, 1)
+  assert.equal(f.events.filter(e => e.type === 'down').length, 2)
+  assert.equal(f.events.find(e => e.type === 'interrupted')!.durationMs, null)
+  assert.equal(f.events.filter(e => e.type === 'gap').length, 1)
   f.set(true); await f.service.runCycle()
   assert.equal(f.events[0]!.type, 'recovery')
-  assert.ok(f.events[0]!.durationMs! >= 60000)
+  assert.ok(f.events[0]!.durationMs! < 60000)
 })
 
 test('history survives write + reload and corrupt files are not silently discarded', async () => {

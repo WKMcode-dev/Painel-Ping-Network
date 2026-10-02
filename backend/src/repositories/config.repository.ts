@@ -10,6 +10,13 @@ export const hostSchema = z.object({
   id: z.string().min(1).max(80).regex(/^[a-zA-Z0-9_-]+$/),
   name: z.string().trim().min(1).max(100), address: z.string().trim().refine(isValidHost, 'IP ou hostname inválido'),
   group: z.string().trim().min(1).max(100), location: z.string().trim().max(100),
+  checks: z.array(z.object({ id: z.string().min(1).max(80), type: z.enum(['tcp', 'http']), port: z.number().int().min(1).max(65535).optional(), url: z.string().url().max(2048).optional(), expectedStatus: z.number().int().min(100).max(599).optional() }).superRefine((check, ctx) => {
+    if (check.type === 'tcp' && !check.port) ctx.addIssue({ code: 'custom', message: 'Informe a porta TCP' })
+    if (check.type === 'http') {
+      let valid = false; try { const url = new URL(check.url ?? ''); valid = ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password } catch {}
+      if (!valid) ctx.addIssue({ code: 'custom', message: 'Informe URL HTTP/HTTPS sem credenciais' })
+    }
+  })).max(8).refine(checks => new Set(checks.map(c => c.id)).size === checks.length, 'IDs de verificações duplicados').optional(),
   description: z.string().max(500).optional(), enabled: z.boolean().default(true),
   maintenanceStart: z.string().datetime().nullable().optional(), maintenanceEnd: z.string().datetime().nullable().optional(),
 }).refine(h => (!h.maintenanceStart && !h.maintenanceEnd) ||

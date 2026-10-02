@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Search, X } from 'lucide-react'
 import type { DeviceConfig, PanelPreferences } from '../../types/config'
-import type { HostSnapshot } from '../../types/monitor'
+import type { HostSnapshot, ServiceCheck } from '../../types/monitor'
 import { configurationRequest, createDevice, editDevice, removeDevice } from '../../services/monitor-api'
 import styles from './DeviceManager.module.css'
 
@@ -83,6 +83,14 @@ export function DeviceManager({ open, onClose, hosts, preferences, onPreferences
           <label>Descrição<textarea maxLength={500} value={editing.description ?? ''} onChange={event => change('description', event.target.value)} /></label>
           <label className={styles.check}><input type="checkbox" checked={editing.enabled} onChange={event => change('enabled', event.target.checked)} /> Monitoramento ativo</label>
           {editing.id && <label className={styles.check}><input type="checkbox" checked={!preferences.hidden.includes(editing.id)} onChange={event => onPreferences({ ...preferences, hidden: event.target.checked ? preferences.hidden.filter(id => id !== editing.id) : [...preferences.hidden, editing.id] })} /> Exibir neste painel / TV</label>}
+          <fieldset><legend>Verificações de serviços (opcionais)</legend><p>ICMP e serviços têm resultados separados. HTTP verifica a URL informada, sem seguir redirecionamentos.</p>
+            {(editing.checks ?? []).map((check, index) => <fieldset key={check.id}><legend>Serviço {index + 1}</legend>
+              <label>Tipo<select value={check.type} onChange={event => change('checks', editing.checks!.map(item => item.id === check.id ? { id: item.id, type: event.target.value as ServiceCheck['type'], ...(event.target.value === 'tcp' ? { port: 443 } : { url: `http://${editing.address}/` }) } : item))}><option value="tcp">TCP</option><option value="http">HTTP</option></select></label>
+              {check.type === 'tcp' ? <label>Porta<input required type="number" min={1} max={65535} value={check.port ?? ''} onChange={event => change('checks', editing.checks!.map(item => item.id === check.id ? { ...item, port: Number(event.target.value) } : item))} /></label> : <><label>URL<input required type="url" value={check.url ?? ''} onChange={event => change('checks', editing.checks!.map(item => item.id === check.id ? { ...item, url: event.target.value } : item))} /></label><label>Status esperado (vazio: 200–399)<input type="number" min={100} max={599} value={check.expectedStatus ?? ''} onChange={event => change('checks', editing.checks!.map(item => item.id === check.id ? { ...item, expectedStatus: event.target.value ? Number(event.target.value) : undefined } : item))} /></label></>}
+              <button type="button" onClick={() => change('checks', editing.checks!.filter(item => item.id !== check.id))}>Remover serviço</button>
+            </fieldset>)}
+            <button type="button" disabled={(editing.checks?.length ?? 0) >= 8} onClick={() => change('checks', [...editing.checks ?? [], { id: crypto.randomUUID(), type: 'tcp', port: 443 }])}>Adicionar serviço</button>
+          </fieldset>
           <label>Início da manutenção<input type="datetime-local" value={localDate(editing.maintenanceStart)} onChange={event => change('maintenanceStart', utcDate(event.target.value))} /></label>
           <label>Fim da manutenção<input type="datetime-local" value={localDate(editing.maintenanceEnd)} onChange={event => change('maintenanceEnd', utcDate(event.target.value))} /></label>
           <div className={styles.rowActions}><button type="button" onClick={() => { change('maintenanceStart', null); change('maintenanceEnd', null) }}>Limpar manutenção</button><button type="submit" disabled={busy}>{busy ? 'Salvando…' : editing.id ? 'Salvar alterações' : 'Adicionar dispositivo'}</button><button type="button" onClick={() => begin(empty())} disabled={busy}>Limpar formulário</button></div>
