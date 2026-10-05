@@ -11,6 +11,7 @@ import type {
   PingResult,
   StatusEvent,
 } from '../types/monitor.js'
+import { canonicalHost } from '../security/service-target.js'
 import { checkService } from './service-check.service.js'
 import { PingService } from './ping.service.js'
 
@@ -259,7 +260,7 @@ export class MonitorService {
           })]).finally(() => clearTimeout(timeout))
           if (generation !== (this.generations.get(host.id) ?? 0) || this.hosts.get(host.id) !== host || this.now() - started > this.staleLimit()) continue
           if (!this.applyResult(host, result)) continue
-          const checks = await Promise.all((host.checks ?? []).map(check => check.type === 'tcp' && !result.resolvedAddress && result.probeError
+          const checks = await Promise.all((host.checks ?? []).map(check => !result.resolvedAddress && result.probeError || check.type === 'http' && canonicalHost(new URL(check.url!).hostname) !== canonicalHost(host.address)
             ? Promise.resolve({ id: check.id, type: check.type, status: 'unknown' as const, checkedAt: new Date(this.now()).toISOString(), latencyMs: null, error: 'Resolução indisponível' })
             : checkService(result.resolvedAddress ?? host.address, check)))
           if (generation === (this.generations.get(host.id) ?? 0) && !this.suspension(host)) host.serviceChecks = checks

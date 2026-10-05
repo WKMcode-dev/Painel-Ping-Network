@@ -112,10 +112,10 @@ test('TCP and HTTP probes are independent, enforce expected status and do not fo
   const port = (server.address() as { port: number }).port, url = `http://127.0.0.1:${port}`
   try {
     assert.equal((await checkService('127.0.0.1', { id: 'tcp', type: 'tcp', port })).status, 'available')
-    assert.equal((await checkService('unused', { id: 'http', type: 'http', url })).status, 'available')
-    assert.equal((await checkService('unused', { id: 'http', type: 'http', url: url + '/bad' })).status, 'unavailable')
-    assert.equal((await checkService('unused', { id: 'http', type: 'http', url: url + '/redirect', expectedStatus: 302 })).status, 'available')
-    assert.equal((await checkService('unused', { id: 'http', type: 'http', url, expectedStatus: 204 })).status, 'unavailable')
+    assert.equal((await checkService('127.0.0.1', { id: 'http', type: 'http', url })).status, 'available')
+    assert.equal((await checkService('127.0.0.1', { id: 'http', type: 'http', url: url + '/bad' })).status, 'unavailable')
+    assert.equal((await checkService('127.0.0.1', { id: 'http', type: 'http', url: url + '/redirect', expectedStatus: 302 })).status, 'available')
+    assert.equal((await checkService('127.0.0.1', { id: 'http', type: 'http', url, expectedStatus: 204 })).status, 'unavailable')
   } finally { await new Promise<void>(resolve => server.close(() => resolve())) }
   assert.equal((await checkService('127.0.0.1', { id: 'tcp', type: 'tcp', port })).status, 'unavailable')
 })

@@ -1,3 +1,4 @@
+import { privateLabel } from '../../utils/privacy'
 import { Activity, MapPin, Network } from 'lucide-react'
 import type { HostSnapshot } from '../../types/monitor'
 import { formatDateTime, formatDuration, formatLatency, formatPercent } from '../../utils/formatters'
@@ -20,13 +21,13 @@ export function HostCard({ host, onSelect, readOnly = false }: HostCardProps) {
       <span className={styles.header}>
         <span className={styles.deviceIcon}><Network size={20} strokeWidth={1.7} /></span>
         <span className={styles.identity}>
-          <strong>{host.name}</strong>
-          <span>{host.address}</span>
+          <strong>{privateLabel(host.name, host.address)}</strong>
+          <span>Dispositivo monitorado</span>
         </span>
         {host.suspended ? <span>{host.suspended}</span> : <StatusBadge status={host.status} />}
       </span>
 
-      <span className={styles.location}><MapPin size={13} /> {host.location}<i />{host.group}</span>
+      <span className={styles.location}><MapPin size={13} /> {privateLabel(host.location, host.address)}<i />{privateLabel(host.group, host.address)}</span>
 
       <span className={styles.metrics}>
         <span><small>{isOffline ? 'Indisponível há' : 'Latência'}</small><b>{isOffline ? formatDuration(host.currentDowntimeMs) : formatLatency(host.latencyMs)}</b></span>

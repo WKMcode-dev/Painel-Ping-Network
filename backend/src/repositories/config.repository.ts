@@ -4,9 +4,11 @@ import { dataFile } from '../storage/data-directory.js'
 import { z } from 'zod'
 import { monitoredHosts } from '../config/hosts.js'
 import { env } from '../config/env.js'
+import { canonicalHost } from '../security/service-target.js'
+import { safeDisplayText } from '../utils/display-text.js'
 import { isValidHost } from '../utils/host-validation.js'
 
-export const hostSchema = z.object({
+export const storedHostSchema = z.object({
   id: z.string().min(1).max(80).regex(/^[a-zA-Z0-9_-]+$/),
   name: z.string().trim().min(1).max(100), address: z.string().trim().refine(isValidHost, 'IP ou hostname inválido'),
   group: z.string().trim().min(1).max(100), location: z.string().trim().max(100),
@@ -21,15 +23,17 @@ export const hostSchema = z.object({
   maintenanceStart: z.string().datetime().nullable().optional(), maintenanceEnd: z.string().datetime().nullable().optional(),
 }).refine(h => (!h.maintenanceStart && !h.maintenanceEnd) ||
   (h.maintenanceStart && h.maintenanceEnd && Date.parse(h.maintenanceEnd) > Date.parse(h.maintenanceStart)), 'Informe início e fim válidos para a manutenção')
+export const hostSchema = storedHostSchema.refine(h => (h.checks ?? []).every(check => check.type !== 'http' || (() => { try { return canonicalHost(new URL(check.url!).hostname) === canonicalHost(h.address) } catch { return false } })()), 'A URL HTTP precisa pertencer ao IP ou hostname cadastrado').refine(h => [h.name, h.group, h.location, h.description ?? ''].every(safeDisplayText), 'Não use IPs nem caracteres de controle em nome, setor, local ou descrição; use o campo de endereço')
 export const configSchema = z.object({
   hosts: z.array(hostSchema).max(200).refine(h => new Set(h.map(x => x.id)).size === h.length, 'IDs duplicados'),
   failureThreshold: z.number().int().min(1).max(20), recoveryThreshold: z.number().int().min(1).max(20),
 })
+export const storedConfigSchema = configSchema.extend({ hosts: z.array(storedHostSchema).max(200).refine(h => new Set(h.map(x => x.id)).size === h.length, 'IDs duplicados') })
 export type MonitorConfig = z.infer<typeof configSchema>
 export class ConfigRepository {
   constructor(private readonly path = dataFile('config.json')) {}
   async load(): Promise<MonitorConfig> {
-    try { return configSchema.parse(JSON.parse(await readFile(this.path, 'utf8'))) }
+    try { return storedConfigSchema.parse(JSON.parse(await readFile(this.path, 'utf8'))) }
     catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       const initial = configSchema.parse({ hosts: monitoredHosts, failureThreshold: env.FAILURE_THRESHOLD, recoveryThreshold: 1 })

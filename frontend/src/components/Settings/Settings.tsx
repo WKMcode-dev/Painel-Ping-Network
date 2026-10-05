@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react'
+import { forgetAdminKey } from '../../services/admin-request'
+import { useEffect, useRef, useState } from 'react'
 import { Moon, Sun, X } from 'lucide-react'
 import { version } from '../../../package.json'
 import { useTheme } from '../../hooks/useTheme'
@@ -10,6 +11,7 @@ import styles from './Settings.module.css'
 interface SettingsProps { open: boolean; onClose: () => void; preferences: PanelPreferences; onPreferences: (p: PanelPreferences) => void }
 
 export function Settings({ open, onClose, preferences, onPreferences }: SettingsProps) {
+  const [accessCleared, setAccessCleared] = useState(false)
   const dialog = useRef<HTMLDialogElement>(null)
   const { theme, setTheme, colors, setColor, resetColors } = useTheme()
 
@@ -41,6 +43,7 @@ export function Settings({ open, onClose, preferences, onPreferences }: Settings
       {open && <MonitorRules preferences={preferences} onPreferences={onPreferences} />}
       <ColorSettings theme={theme} colors={colors} onChange={setColor} onReset={resetColors} />
       <section className={styles.section}>
+        <h3>Acesso administrativo</h3><p>Alterações exigem a chave exibida no terminal do backend. A chave não é salva neste navegador.</p><button type="button" onClick={() => { forgetAdminKey(); setAccessCleared(true) }}>Encerrar acesso administrador nesta página</button>{accessCleared && <p role="status">Chave removida da memória. A próxima alteração pedirá autenticação.</p>}
         <h3>Sobre a aplicação</h3>
         <dl className={styles.about}><div><dt>Aplicação</dt><dd>Painel Ping</dd></div><div><dt>Versão</dt><dd>{version}</dd></div></dl>
       </section>

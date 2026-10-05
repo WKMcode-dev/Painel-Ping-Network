@@ -4,12 +4,12 @@ import { createHash } from 'node:crypto'
 import { hostname } from 'node:os'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { z } from 'zod'
-import { configSchema } from '../repositories/config.repository.js'
+import { storedConfigSchema } from '../repositories/config.repository.js'
 import { topologyDocumentSchema } from '../repositories/topology.repository.js'
 import { eventSchema } from '../repositories/history.repository.js'
 
 const files = ['config.json', 'topology.json', 'status-history.json'] as const
-const validators = { 'config.json': configSchema, 'topology.json': topologyDocumentSchema, 'status-history.json': z.array(eventSchema) }
+const validators = { 'config.json': storedConfigSchema, 'topology.json': topologyDocumentSchema, 'status-history.json': z.array(eventSchema) }
 const absent = (error: unknown) => (error as NodeJS.ErrnoException).code === 'ENOENT'
 async function existingFiles(directory: string) {
   const present: string[] = []

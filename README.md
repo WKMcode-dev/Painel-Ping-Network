@@ -2,6 +2,18 @@
 
 Painel web para acompanhar a disponibilidade de dispositivos de rede por ICMP. O backend executa as verificações, reconhece quedas e retornos e envia os dados ao frontend em tempo real por WebSocket.
 
+## Ajustes da v1.10.1
+
+Cards e apresentação do mapa ocultam endereços. Novos campos de nome, setor, local, descrição e textos do mapa não aceitam IPs; dados antigos continuam carregando sem perda. Endereços permanecem nos detalhes e no cadastro.
+
+Balões, grupos, dobras e centros de junções passam a usar **meia célula (12 px)**. Cada borda oferece + antes/depois dos pontos já ocupados, e junções oferecem + nos quatro lados.
+
+**Alterações exigem chave de administrador.** Na primeira inicialização, guarde a chave mostrada uma vez no terminal; ela fica em `admin-access.json` na pasta fixa de dados. É possível definir `ADMIN_TOKEN` no `.env` (32–512 caracteres imprimíveis sem espaços). A interface pede a chave ao salvar/alterar ou solicitar coleta manual. Configurações permite encerrar o acesso na página. Atualizações automáticas continuam livres.
+
+Há proteção de escrita/origem, limites HTTP/WS e verificações HTTP vinculadas ao dispositivo/IP resolvido. Use HTTPS e rede/VPN autorizada: a leitura do painel e detalhes permanece pública na rede. Ocultar IPs não é restringir acesso à API.
+
+Leia [as notas de atualização](docs/releases/v1.10.1.md) e [o relatório de segurança](docs/security-v1.10.1.md). A pasta fixa de dados permanece a mesma.
+
 ## Novidades da v1.10.0
 
 - Junções nas linhas: use o **+** de uma conexão e depois o balão ou o **+ de outra conexão** para criar ramificações. Cada novo trecho oferece mais espaço para junções. Cores e dobras são preservadas; salve o mapa depois de editar.

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { privateLabel } from '../../utils/privacy'
 import { Plus, Search, X } from 'lucide-react'
 import type { DeviceConfig, PanelPreferences } from '../../types/config'
 import type { HostSnapshot, ServiceCheck } from '../../types/monitor'
@@ -38,6 +39,7 @@ export function DeviceManager({ open, onClose, hosts, preferences, onPreferences
   }
   const save = async () => {
     if (!editing || busy) return
+    if ([editing.name, editing.group, editing.location, editing.description ?? ''].some(text => privateLabel(text) !== text)) { setError('Use IPs somente no campo IP ou hostname, nunca nos campos de texto.'); return }
     setBusy(true); setError(''); setMessage('')
     try {
       const { id, ...data } = editing

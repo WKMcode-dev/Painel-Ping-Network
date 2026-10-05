@@ -1,3 +1,4 @@
+import { adminRequest } from './admin-request'
 import type { DashboardSnapshot } from '../types/monitor'
 
 import type { MonitorConfig, DeviceConfig } from '../types/config'
@@ -11,7 +12,7 @@ export async function fetchSnapshot(signal?: AbortSignal): Promise<DashboardSnap
 }
 
 export async function requestRefresh(): Promise<DashboardSnapshot> {
-  const response = await fetch(`${configuredBase}/api/monitor/refresh`, { method: 'POST', signal: AbortSignal.timeout(30000) })
+  const response = await adminRequest(`${configuredBase}/api/monitor/refresh`, { method: 'POST', signal: AbortSignal.timeout(30000) })
   if (!response.ok) throw new Error('Não foi possível atualizar os dispositivos')
   return response.json() as Promise<DashboardSnapshot>
 }
@@ -33,7 +34,7 @@ export async function fetchHostEvents(id: string, signal: AbortSignal): Promise<
 }
 
 export async function configurationRequest(config?: MonitorConfig): Promise<MonitorConfig> {
-  const response = await fetch(`${configuredBase}/api/monitor/config`, {
+  const response = await (config ? adminRequest : fetch)(`${configuredBase}/api/monitor/config`, {
     method: config ? 'PUT' : 'GET', headers: config ? { 'Content-Type': 'application/json' } : undefined,
     body: config ? JSON.stringify(config) : undefined, signal: AbortSignal.timeout(15000),
   })
@@ -43,7 +44,7 @@ export async function configurationRequest(config?: MonitorConfig): Promise<Moni
 }
 
 async function deviceRequest(path: string, method: 'POST' | 'PATCH' | 'DELETE', body?: Partial<DeviceConfig>): Promise<DeviceConfig | null> {
-  const response = await fetch(`${configuredBase}/api/monitor/hosts${path}`, {
+  const response = await adminRequest(`${configuredBase}/api/monitor/hosts${path}`, {
     method, headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(15000),
   })

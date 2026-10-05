@@ -98,13 +98,13 @@ test('invalid address, duplicate id, thresholds and maintenance are rejected', (
 
 test('HTTP config endpoints save valid data, reject hostile origin and invalid payload', async () => {
   const f = await fixture()
-  const server = createServer(createApp(f.service))
+  const server = createServer(createApp(f.service, 'test-admin-key'))
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const address = server.address() as { port: number }
   const url = `http://127.0.0.1:${address.port}/api/monitor/config`
   try {
     assert.equal((await fetch(url)).status, 200)
-    const send = (body: unknown, origin = 'http://localhost:5173') => fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', origin }, body: JSON.stringify(body) })
+    const send = (body: unknown, origin = 'http://localhost:5173') => fetch(url, { method: 'PUT', headers: { Authorization: 'Bearer test-admin-key', 'Content-Type': 'application/json', origin }, body: JSON.stringify(body) })
     assert.equal((await send(base, 'https://attacker.example')).status, 403)
     assert.equal((await send({ ...base, recoveryThreshold: 0 })).status, 400)
     assert.equal((await send({ ...base, hosts: [] })).status, 200)

@@ -1,3 +1,4 @@
+import { safeDisplayText } from '../utils/display-text.js'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { dataFile } from '../storage/data-directory.js'
@@ -35,6 +36,8 @@ export const topologySchema = z.object({
     ctx.addIssue({ code: 'custom', message: 'Conexão sem origem/destino válido' })
   }
 })
+export const editableTopologySchema = topologySchema.refine(g => g.nodes.every(n => [n.label, n.subtitle ?? '', n.caption ?? '', ...(n.texts?.map(t => t.text) ?? [])].every(safeDisplayText)) && g.edges.every(e => safeDisplayText(e.label)), 'Use IPs somente no cadastro do endereço, não nos textos do mapa')
+export const editableTopologyDocumentSchema = z.object({ revision: z.number().int().nonnegative(), graph: editableTopologySchema })
 export const topologyDocumentSchema = z.object({ revision: z.number().int().nonnegative(), graph: topologySchema })
 export type TopologyDocument = z.infer<typeof topologyDocumentSchema>
 export class TopologyConflict extends Error {}

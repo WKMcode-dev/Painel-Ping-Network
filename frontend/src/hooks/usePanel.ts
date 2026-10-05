@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { privateLabel } from '../utils/privacy'
 import { AlertTracker } from '../utils/alerts'
 import { defaultPreferences, type PanelPreferences } from '../types/config'
 import type { DashboardSnapshot } from '../types/monitor'
@@ -28,7 +29,7 @@ export function usePanel(snapshot: DashboardSnapshot, live: boolean) {
     if (!live || !snapshot.generatedAt) return
     const fresh = tracker.current.accept(snapshot, preferences, Date.now())
     if (!fresh.length) return
-    setAlerts(previous => [...fresh.map(e => e.message), ...previous].slice(0, 5))
+    setAlerts(previous => [...fresh.map(e => privateLabel(e.message)), ...previous].slice(0, 5))
     if (preferences.sound && audio.current?.state === 'running') {
       const oscillator = audio.current.createOscillator(), gain = audio.current.createGain()
       gain.gain.value = .08; oscillator.frequency.value = 660

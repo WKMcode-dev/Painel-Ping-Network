@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Graph, MapEdge, MapNode, NodeColor, NodeShape, MapText, TextAlign, MapSide } from '../../types/topology'
 import type { HostSnapshot } from '../../types/monitor'
-import { nodeSize, uniqueId, resolvedEdges } from '../../utils/topology'
+import { snap, nodeSize, uniqueId, resolvedEdges } from '../../utils/topology'
 import styles from './NetworkMap.module.css'
 
 const shapes: { value: NodeShape; label: string }[] = [
@@ -44,7 +44,7 @@ export function MapInspector({ node, edge, graph, host, commit, onDetails, onCon
   if (node?.kind === 'junction') return <aside className={styles.inspector} onPointerDown={e => e.stopPropagation()}><strong>Junção de conexões</strong><p>Arraste o ponto para ajustar a ramificação. Os + nas linhas criam novas junções com espaçamento.</p><ColorControl label="Cor da junção" value={node.outline} fallback="#303237" onChange={outline => changeNode({ outline })} onClear={() => changeNode({ outline: undefined })} presets /><button onClick={onConnect}>Conectar</button><button onClick={onDelete}>Remover junção e suas ligações</button></aside>
   return <aside className={styles.inspector} aria-label="Elemento selecionado" onPointerDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}>
     <strong>{edge ? 'Conexão' : host ? host.name : 'Tópico'}</strong>
-    {host && <><span>{host.address}</span><span>{host.suspended ?? { online: 'On-line', offline: 'Off-line', unknown: 'Verificando' }[host.status]}</span><button onClick={() => onDetails(host.id)}>Abrir status e histórico</button></>}
+    {host && <><span>Endereço disponível nos detalhes</span><span>{host.suspended ?? { online: 'On-line', offline: 'Off-line', unknown: 'Verificando' }[host.status]}</span><button onClick={() => onDetails(host.id)}>Abrir status e histórico</button></>}
     {(!node?.hostId || edge) && <form onSubmit={e => {
       e.preventDefault()
       if (edge) changeEdge({ label: label.trim() })
@@ -81,12 +81,13 @@ export function MapInspector({ node, edge, graph, host, commit, onDetails, onCon
         <small>Shift + Enter cria uma nova linha. Clique em Aplicar blocos e depois Salvar mapa. Até 30 blocos por balão.</small>
         <button type="submit">Aplicar blocos</button>
       </form>
+      <small>Se faltar espaço para novos pontos de ligação, aumente a largura ou a altura do elemento.</small>
       <label>Forma<select value={node.shape ?? 'rounded'} onChange={e => changeNode({ shape: e.target.value as NodeShape, width: undefined, height: undefined })}>
         {shapes.map(shape => <option key={shape.value} value={shape.value}>{shape.label}</option>)}
       </select></label>
       <div className={styles.dimensions}>
-        <label>Largura<input type="number" min={96} max={576} step={24} value={dimensions!.width} onChange={e => { const width = Number(e.target.value); if (width >= 96 && width <= 576) changeNode({ width }) }} /></label>
-        <label>Altura<input type="number" min={72} max={576} step={24} value={dimensions!.height} onChange={e => { const height = Number(e.target.value); if (height >= 72 && height <= 576) changeNode({ height }) }} /></label>
+        <label>Largura<input type="number" min={96} max={576} step={12} value={dimensions!.width} onChange={e => { const width = Number(e.target.value); if (width >= 96 && width <= 576) changeNode({ width: snap(width) }) }} /></label>
+        <label>Altura<input type="number" min={72} max={576} step={12} value={dimensions!.height} onChange={e => { const height = Number(e.target.value); if (height >= 72 && height <= 576) changeNode({ height: snap(height) }) }} /></label>
       </div>
       <label>Cor de referência<select value={node.color} onChange={e => changeNode({ color: e.target.value as NodeColor })}>
         {(['neutral', 'blue', 'green', 'orange', 'purple', 'pink'] as const).map((color, i) => <option key={color} value={color}>{['Padrão', 'Azul', 'Verde', 'Laranja', 'Roxo', 'Rosa'][i]}</option>)}

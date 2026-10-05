@@ -1,3 +1,4 @@
+import { privateLabel } from '../utils/privacy'
 import { Activity, Gauge, Server, ShieldAlert } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { DashboardHeader } from '../components/DashboardHeader/DashboardHeader'
@@ -62,7 +63,7 @@ export default function App() {
   const average = latencies.length ? latencies.reduce((a, b) => a + b, 0) / latencies.length : null
   const visibleHosts = currentHosts.filter(h => !panel.preferences.hidden.includes(h.id) && (!group || !groups.includes(group) || h.group === group))
   const term = query.trim().toLocaleLowerCase('pt-BR')
-  const cardHosts = visibleHosts.filter(h => (filter === 'all' || h.status === filter) && (!term || `${h.name} ${h.address} ${h.group} ${h.location}`.toLocaleLowerCase('pt-BR').includes(term)))
+  const cardHosts = visibleHosts.filter(h => (filter === 'all' || h.status === filter) && (!term || privateLabel(`${h.name} ${h.group} ${h.location}`, h.address).toLocaleLowerCase('pt-BR').includes(term)))
     .sort((a, b) => (a.status === 'offline' ? 0 : a.status === 'unknown' ? 1 : 2) - (b.status === 'offline' ? 0 : b.status === 'unknown' ? 1 : 2) || a.name.localeCompare(b.name, 'pt-BR'))
 
   const selectedHost = currentHosts.find((host) => host.id === selectedId) ?? null

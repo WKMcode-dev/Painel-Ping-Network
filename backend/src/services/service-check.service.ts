@@ -1,3 +1,7 @@
+import { checkServerIdentity } from 'node:tls'
+import { request as httpRequest } from 'node:http'
+import { request as httpsRequest } from 'node:https'
+import { canonicalHost, safeServiceAddress } from '../security/service-target.js'
 import { createConnection } from 'node:net'
 import { performance } from 'node:perf_hooks'
 import { env } from '../config/env.js'
@@ -17,14 +21,26 @@ export async function checkService(address: string, check: ServiceCheck): Promis
     }
     socket.once('connect', () => finish(true)); socket.once('error', error => finish(false, `${(error as NodeJS.ErrnoException).code ?? ''}: ${error.message}`))
   })
-  try {
-    const response = await fetch(check.url!, { redirect: 'manual', signal: AbortSignal.timeout(env.PING_TIMEOUT_MS) })
-    const ok = check.expectedStatus ? response.status === check.expectedStatus : response.status >= 200 && response.status < 400
-    await response.body?.cancel()
-    return { ...base, checkedAt: new Date().toISOString(), status: ok ? 'available' : 'unavailable', statusCode: response.status, latencyMs: performance.now() - start,
-      error: ok ? undefined : `HTTP ${response.status}` }
-  } catch (error) {
-    const cause = (error as { cause?: { code?: string } }).cause?.code ?? ''
-    return { ...base, checkedAt: new Date().toISOString(), status: /EACCES|EPERM|ENOTFOUND|EAI_AGAIN|CERT|TLS|SELF_SIGNED/.test(cause) ? 'unknown' : 'unavailable', latencyMs: null, error: `${cause}: ${error instanceof Error ? error.message : String(error)}` }
-  }
+  if (!safeServiceAddress(address)) return { ...base, status: 'unknown', latencyMs: null, error: 'Destino HTTP não autorizado ou DNS indisponível' }
+  let url: URL
+  try { url = new URL(check.url!) } catch { return { ...base, status: 'unknown', latencyMs: null, error: 'URL inválida' } }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return { ...base, status: 'unknown', latencyMs: null, error: 'URL não autorizada' }
+  return new Promise(resolve => {
+    let done = false
+    const finish = (result: Partial<ServiceResult>) => { if (done) return; done = true; clearTimeout(timer); resolve({ ...base, checkedAt: new Date().toISOString(), status: 'unknown', latencyMs: null, ...result }) }
+    // Pin the already-resolved IP. Preserve Host/SNI and validate HTTPS against the original hostname.
+    const request = (url.protocol === 'https:' ? httpsRequest : httpRequest)({ hostname: address, port: url.port || (url.protocol === 'https:' ? 443 : 80), method: 'GET', path: url.pathname + url.search,
+      headers: { Host: url.host }, servername: canonicalHost(url.hostname), maxHeaderSize: 8192, agent: false, checkServerIdentity: (_hostname, cert) => checkServerIdentity(canonicalHost(url.hostname), cert) }, response => {
+      const code = response.statusCode ?? 0
+      const ok = check.expectedStatus ? code === check.expectedStatus : code >= 200 && code < 400
+      finish({ status: ok ? 'available' : 'unavailable', statusCode: code, latencyMs: performance.now() - start, error: ok ? undefined : `HTTP ${code}` })
+      response.destroy(); request.destroy()
+    })
+    const timer = setTimeout(() => { finish({ status: 'unavailable', error: 'Tempo limite HTTP' }); request.destroy() }, env.PING_TIMEOUT_MS)
+    request.on('error', error => {
+      const code = (error as NodeJS.ErrnoException).code ?? ''
+      finish({ status: /EACCES|EPERM|ENOTFOUND|EAI_AGAIN|CERT|TLS|SELF_SIGNED/.test(code) ? 'unknown' : 'unavailable', error: `${code}: ${error.message}` })
+    })
+    request.end()
+  })
 }

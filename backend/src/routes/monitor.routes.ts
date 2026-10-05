@@ -1,6 +1,6 @@
-import { configSchema, hostSchema } from '../repositories/config.repository.js'
+import { allowedOrigin } from '../security/origin.js'
+import { configSchema, storedConfigSchema, hostSchema } from '../repositories/config.repository.js'
 import { randomUUID } from 'node:crypto'
-import { env } from '../config/env.js'
 import { Router } from 'express'
 import { MonitorController } from '../controllers/monitor.controller.js'
 import type { MonitorService } from '../services/monitor.service.js'
@@ -13,7 +13,7 @@ export function createMonitorRouter(monitorService: MonitorService): Router {
   router.put('/config', async (req, res) => {
     // Browser writes must come from this server or an explicitly allowed frontend.
     const origin = req.get('origin')
-    if (origin && origin !== `${req.protocol}://${req.get('host')}` && !env.allowedOrigins.includes(origin)) {
+    if (!allowedOrigin(origin, req.get('host'))) {
       res.status(403).json({ message: 'Origem não autorizada' }); return
     }
     if (!req.is('application/json')) { res.status(415).json({ message: 'JSON obrigatório' }); return }
@@ -24,7 +24,7 @@ export function createMonitorRouter(monitorService: MonitorService): Router {
   })
   const canWrite = (req: Parameters<typeof controller.status>[0]) => {
     const origin = req.get('origin')
-    return !origin || origin === `${req.protocol}://${req.get('host')}` || env.allowedOrigins.includes(origin)
+    return allowedOrigin(origin, req.get('host'))
   }
   router.post('/hosts', async (req, res) => {
     if (!canWrite(req)) { res.status(403).json({ message: 'Origem não autorizada' }); return }
@@ -32,7 +32,7 @@ export function createMonitorRouter(monitorService: MonitorService): Router {
     const parsed = hostSchema.safeParse({ ...req.body, id: randomUUID() })
     if (!parsed.success) { res.status(400).json({ message: parsed.error.issues.map(issue => issue.message).join('; ') }); return }
     try {
-      await monitorService.updateConfiguration(current => configSchema.parse({ ...current, hosts: [...current.hosts, parsed.data] }))
+      await monitorService.updateConfiguration(current => storedConfigSchema.parse({ ...current, hosts: [...current.hosts, parsed.data] }))
       res.status(201).json(parsed.data)
     } catch (error) { res.status(400).json({ message: error instanceof Error ? error.message : 'Falha ao adicionar dispositivo' }) }
   })
@@ -47,7 +47,7 @@ export function createMonitorRouter(monitorService: MonitorService): Router {
     try {
       await monitorService.updateConfiguration(current => {
         if (!current.hosts.some(host => host.id === hostId)) throw new Error('Dispositivo não encontrado')
-        return configSchema.parse({ ...current, hosts: current.hosts.map(host => {
+        return storedConfigSchema.parse({ ...current, hosts: current.hosts.map(host => {
           if (host.id !== hostId) return host
           updated = hostSchema.parse({ ...host, ...req.body, id: hostId })
           return updated

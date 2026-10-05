@@ -17,10 +17,10 @@ test('device CRUD persists and handles concurrent creates, validation, pause and
   await service.configure(config)
   await service.initialize()
   await service.stop()
-  const server = createServer(createApp(service))
+  const server = createServer(createApp(service, 'test-admin-key'))
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const base = `http://127.0.0.1:${(server.address() as { port: number }).port}/api/monitor`
-  const send = (method: string, path: string, body?: unknown, origin = 'http://localhost:5173') => fetch(`${base}${path}`, { method, headers: { origin, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined })
+  const send = (method: string, path: string, body?: unknown, origin = 'http://localhost:5173') => fetch(`${base}${path}`, { method, headers: { Authorization: 'Bearer test-admin-key', origin, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined })
   try {
     const make = (name: string) => ({ name, address: '127.0.0.1', group: 'TI', location: 'Sede', description: 'Monitoramento', enabled: true })
     assert.equal((await send('POST', '/hosts', { ...make('Proibido') }, 'https://external.example')).status, 403)

@@ -1,8 +1,8 @@
 import type { Graph, MapEdge, MapNode, MapPoint, MapSide, Viewport } from '../types/topology'
-export const GRID = 24, NODE_WIDTH = 216, NODE_HEIGHT = 96, CORNER_RADIUS = 10
+export const GRID = 24, SNAP_STEP = GRID / 2, NODE_WIDTH = 216, NODE_HEIGHT = 96, CORNER_RADIUS = 10
 export const uniqueId = () => `map-${Array.from(crypto.getRandomValues(new Uint8Array(16)), n => n.toString(16).padStart(2, '0')).join('')}`
 export const clampCoordinate = (value: number) => Math.max(-200000, Math.min(200000, value))
-export const snap = (value: number) => clampCoordinate(Math.round(value / GRID) * GRID)
+export const snap = (value: number) => clampCoordinate(Math.round(value / SNAP_STEP) * SNAP_STEP)
 export const snapBend = (value: number) => clampCoordinate(Math.round(value / (GRID / 2)) * (GRID / 2))
 export const snapPoint = (point: MapPoint): MapPoint => ({ x: snapBend(point.x), y: snapBend(point.y) })
 export function nodeSize(node: MapNode) {
@@ -24,7 +24,7 @@ export function nodeSize(node: MapNode) {
 /** Device names/status remain owned by monitoring, not by this visual document. */
 export function reconcileGraph(graph: Graph, hosts: { id: string; name: string; group: string }[]): Graph {
   const hostIds = new Set(hosts.map(h => h.id))
-  const nodes = graph.nodes.filter(n => !n.hostId || hostIds.has(n.hostId)).map(n => ({ ...n, x: n.kind === 'junction' ? n.x : snap(n.x), y: n.kind === 'junction' ? n.y : snap(n.y),
+  const nodes = graph.nodes.filter(n => !n.hostId || hostIds.has(n.hostId)).map(n => ({ ...n, x: n.kind === 'junction' ? snap(n.x + 6) - 6 : snap(n.x), y: n.kind === 'junction' ? snap(n.y + 6) - 6 : snap(n.y),
     label: n.hostId ? hosts.find(h => h.id === n.hostId)!.name : n.label }))
   const existing = new Set(nodes.flatMap(n => n.hostId ? [n.hostId] : []))
   const right = nodes.length ? Math.max(...nodes.map(n => n.x + nodeSize(n).width)) + 84 : 0
@@ -120,11 +120,13 @@ export function anchor(node: MapNode, side: MapSide, offset = .5): MapPoint {
         : { x: node.x + width * boundary / 216, y: node.y + height * offset }
     }
   }
+  const alignedX = node.x + Math.max(SNAP_STEP, Math.min(width - SNAP_STEP, snap(width * offset)))
+  const alignedY = node.y + Math.max(SNAP_STEP, Math.min(height - SNAP_STEP, snap(height * offset)))
   switch (side) {
-    case 'top': return { x: node.x + width * offset, y: node.y }
-    case 'right': return { x: node.x + width, y: node.y + height * offset }
-    case 'bottom': return { x: node.x + width * offset, y: node.y + height }
-    case 'left': return { x: node.x, y: node.y + height * offset }
+    case 'top': return { x: alignedX, y: node.y }
+    case 'right': return { x: node.x + width, y: alignedY }
+    case 'bottom': return { x: alignedX, y: node.y + height }
+    case 'left': return { x: node.x, y: alignedY }
   }
 }
 /** Choose a facing surface using the direction to the next bend or node. */
@@ -287,7 +289,9 @@ export function junctionPoint(source: MapNode, target: MapNode, edge: MapEdge) {
   }
   if (length < 48) return null
   const a = points[segment]!, b = points[segment + 1]!
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, segment }
+  const middle = snapPoint({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
+  // Junctions use their center as the grid reference; normal nodes use their top-left.
+  return { ...middle, segment }
 }
 export function splitConnection(graph: Graph, geometry: MapEdge, junctionId: string, secondId: string): Graph {
   if (graph.nodes.length >= 600 || graph.edges.length >= 2000 || graph.nodes.some(n => n.id === junctionId) || graph.edges.some(e => e.id === secondId)) return graph
@@ -298,4 +302,26 @@ export function splitConnection(graph: Graph, geometry: MapEdge, junctionId: str
   const first: MapEdge = { ...geometry, target: junctionId, targetSide: undefined, targetOffset: undefined, bends: geometry.bends?.slice(0, point.segment) }
   const second: MapEdge = { ...geometry, id: secondId, source: junctionId, sourceSide: undefined, sourceOffset: undefined, label: '', bends: geometry.bends?.slice(point.segment) }
   return { ...graph, nodes: [...graph.nodes, { id: junctionId, kind: 'junction', label: 'Junção', x: point.x - 6, y: point.y - 6, color: 'neutral', outline: geometry.stroke }], edges: [...graph.edges.map(e => e.id === geometry.id ? first : e), second] }
+}
+
+export function allFreePortChoices(edges: MapEdge[], nodes: MapNode[] = []): Map<string, number[]> {
+  const nodeMap = new Map(nodes.map(n => [n.id, n]))
+  const used = new Map<string, Set<number>>()
+  for (const edge of edges) for (const end of ['source', 'target'] as const) {
+    const side = edge[end === 'source' ? 'sourceSide' : 'targetSide']
+    if (!side) continue
+    const key = `${edge[end]}:${side}`, values = used.get(key) ?? new Set<number>()
+    const node = nodeMap.get(edge[end]), raw = edge[end === 'source' ? 'sourceOffset' : 'targetOffset'] ?? .5
+    const size = node ? nodeSize(node) : null, span = size ? side === 'top' || side === 'bottom' ? size.width : size.height : 0
+    values.add(span && !['cloud', 'ellipse', 'circle'].includes(node?.shape ?? '') ? Math.max(SNAP_STEP, Math.min(span - SNAP_STEP, snap(span * raw))) / span : raw); used.set(key, values)
+  }
+  return new Map([...used].map(([key, values]) => {
+    const points = [0, ...values, 1].sort((a, b) => a - b)
+    const [nodeId, side] = [key.slice(0, key.lastIndexOf(':')), key.slice(key.lastIndexOf(':') + 1)]
+    const node = nodeMap.get(nodeId), size = node ? nodeSize(node) : null, span = size ? side === 'top' || side === 'bottom' ? size.width : size.height : 0
+    const offsets = points.slice(1).flatMap((p, i) => p - points[i]! >= (span ? SNAP_STEP * 2 / span : .10) ? [(p + points[i]!) / 2] : [])
+      .map(p => span ? Math.max(SNAP_STEP, Math.min(span - SNAP_STEP, snap(span * p))) / span : p)
+      .filter(p => [...values].every(v => Math.abs(p - v) >= (span ? SNAP_STEP / span - 1e-9 : .025)))
+    return [key, [...new Set(offsets)]]
+  }))
 }

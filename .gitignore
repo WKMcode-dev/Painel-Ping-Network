@@ -31,3 +31,6 @@ backend/storage/*.json
 *.tmp
 .env.*
 !.env.example
+
+# Persistent administrative credentials
+admin-access.json
