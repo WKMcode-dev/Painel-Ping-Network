@@ -88,6 +88,32 @@ test('a monitoring gap interrupts instead of asserting recovery', () => {
   diagnostics.update([h], now + 32000, 30000)
   assert.equal(s.getAll()[0]!.state, 'interrupted')
 })
+test('collector suspension breaks confirmation and continuity even without intervening snapshots', () => {
+  const s = store(), diagnostics = new IncidentDiagnostics(s), p = parent()
+  diagnostics.update([p], now, 30000, 2)
+  p.snmpResult.checkedAt = at(now + 60000)
+  diagnostics.update([p], now + 60000, 30000, 2)
+  assert.equal(s.getAll().length, 0)
+  p.snmpResult.checkedAt = at(now + 61000)
+  diagnostics.update([p], now + 61000, 30000, 2)
+  assert.equal(s.getAll()[0]!.state, 'active')
+  p.snmpResult.interfaces[0]!.operStatus = 1
+  p.snmpResult.checkedAt = at(now + 120000)
+  diagnostics.update([p], now + 120000, 30000, 2)
+  assert.equal(s.getAll()[0]!.state, 'interrupted')
+})
+test('changing current evidence preserves earlier facts in the same incident', () => {
+  const s = store(), diagnostics = new IncidentDiagnostics(s)
+  const h = { ...host(), attachment: { hostId: 'switch', interfaceIndex: 7 } }, p = parent(2)
+  diagnostics.update([h, p], now, 30000)
+  p.snmpResult.status = 'unknown' as never
+  h.lastCheckedAt = at(now + 1000)
+  diagnostics.update([h, p], now + 1000, 30000)
+  const report = s.getAll().find(r => r.hostId === h.id)!
+  assert.equal(report.cause, 'Causa não identificada')
+  assert.ok(report.evidence.some(e => e.source === 'snmp' && e.checkedAt === at(now)))
+  assert.ok(report.evidence.some(e => e.source === 'icmp' && e.checkedAt === at(now + 1000)))
+})
 test('persistent reports survive restart without false recovery or mutable references', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'ping-incidents-'))
   try {

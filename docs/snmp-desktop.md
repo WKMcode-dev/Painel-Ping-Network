@@ -22,7 +22,7 @@ Os registros persistem em `incident-reports.json`, com retenção dos encerrados
 
 ## Desktop
 
-Distribuição inicial: Windows 10/11 x64 (NSIS) e Linux x64 com ambiente gráfico (AppImage e pacote DEB). A validação automatizada usa Windows e Ubuntu dos runners; outras versões/distribuições precisam de homologação. Linux precisa do comando `ping` e das bibliotecas gráficas do Electron. Não inclui atualização automática nem assinatura Authenticode.
+Distribuição inicial: Windows 10/11 x64 (NSIS) e Linux x64 com ambiente gráfico (AppImage e pacote DEB). A validação automatizada usa Windows e Ubuntu dos runners; outras versões/distribuições precisam de homologação. Linux precisa do comando `ping`, das bibliotecas gráficas do Electron e de suporte ao sandbox (user namespaces permitidos ou helper configurado pelo instalador). AppImage também depende de FUSE; políticas de AppArmor em algumas distribuições podem exigir configuração do administrador. A VM Linux da CI permite user namespaces para testar o sandbox. Não inclui atualização automática nem assinatura Authenticode.
 
 O modo local inicia um processo auxiliar com o backend, acessível somente em loopback, e mantém o coletor na bandeja. **Encerrar** aguarda a gravação do histórico e a liberação da trava. Apenas uma instância pode escrever na pasta fixa de dados. Pare a versão web anterior antes de abrir o desktop. Dispositivos e mapa já salvos são reutilizados.
 

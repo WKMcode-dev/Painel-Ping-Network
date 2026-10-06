@@ -37,12 +37,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run desktop:stage
+      - name: Prepare sandbox in Linux test VM
+        if: runner.os == 'Linux'
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Smoke test Linux desktop
+        timeout-minutes: 2
         if: runner.os == 'Linux'
         run: xvfb-run -a npm run desktop:smoke
         env:
           DATA_DIR: ${{ runner.temp }}/painel-ping-smoke
       - name: Smoke test Windows desktop
+        timeout-minutes: 2
         if: runner.os == 'Windows'
         run: npm run desktop:smoke
         env:
@@ -54,11 +59,13 @@ jobs:
         if: runner.os == 'Windows'
         run: npx electron-builder --projectDir desktop/staging --config ../builder.json --win --x64
       - name: Smoke test packaged Linux desktop
+        timeout-minutes: 2
         if: runner.os == 'Linux'
         run: xvfb-run -a ./desktop-release/linux-unpacked/painel-ping-desktop --smoke-test
         env:
           DATA_DIR: ${{ runner.temp }}/painel-ping-smoke
       - name: Smoke test packaged Windows desktop
+        timeout-minutes: 2
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -71,6 +78,10 @@ jobs:
         run: node -e "const fs=require('node:fs'),path=require('node:path'); const p=process.env.DATA_DIR; if (!fs.existsSync(path.join(p,'config.json')) || fs.existsSync(path.join(path.dirname(p),'.'+path.basename(p)+'.lock'))) process.exit(1)"
         env:
           DATA_DIR: ${{ runner.temp }}/painel-ping-smoke
+      - name: Desktop logs on failure
+        if: failure()
+        shell: bash
+        run: node -e "const fs=require('node:fs'),path=require('node:path'),os=require('node:os'); const root=process.platform==='win32'?process.env.APPDATA:(process.env.XDG_CONFIG_HOME||path.join(os.homedir(),'.config'));const p=path.join(root,'PainelPingDesktop','desktop.log'); if(fs.existsSync(p))console.log(fs.readFileSync(p,'utf8').slice(-12000));"
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ runner.os }}

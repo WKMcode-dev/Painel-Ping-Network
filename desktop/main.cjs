@@ -3,11 +3,14 @@ const { createServer } = require('node:net')
 const { readFileSync, writeFileSync, appendFileSync, mkdirSync } = require('node:fs')
 const { join } = require('node:path')
 // Perfil próprio e estável, separado dos arquivos de dados do monitoramento.
-app.setPath('userData', join(app.getPath('appData'), 'PainelPingDesktop'))
+const profileDirectory = join(app.getPath('appData'), 'PainelPingDesktop')
+mkdirSync(profileDirectory, { recursive: true })
+app.setPath('userData', profileDirectory)
 let window,
   worker,
   tray,
-  stopping = false
+  stopping = false,
+  exitCode = 0
 const remoteArgument = process.argv.find((value) => value.startsWith('--server='))
 const smoke = process.argv.includes('--smoke-test')
 const dataPath = () =>
@@ -193,7 +196,7 @@ app.on('before-quit', (event) => {
   worker.postMessage('shutdown')
   Promise.race([exit, new Promise((resolve) => setTimeout(resolve, 30000))]).finally(() => {
     worker?.kill()
-    app.quit()
+    app.exit(exitCode)
   })
 })
 app.on('window-all-closed', () => {
@@ -213,7 +216,8 @@ else {
     .catch((error) => {
       if (smoke) console.error(error)
       else dialog.showErrorBox('Painel Ping', error.message)
-      process.exitCode = 1
-      app.quit()
+      exitCode = 1
+      if (worker) app.quit()
+      else app.exit(exitCode)
     })
 }

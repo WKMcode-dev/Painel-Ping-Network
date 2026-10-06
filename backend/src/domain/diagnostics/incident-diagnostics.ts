@@ -142,8 +142,17 @@ export function observedFailures(
 export class IncidentDiagnostics {
   private active = new Map<string, IncidentReport>()
   private pending = new Map<string, { at: string; count: number; first: string }>()
+  private lastUpdateAt: number | null = null
   constructor(private readonly store: Store) {}
   update(hosts: HostSnapshot[], now: number, staleAfterMs: number, threshold = 2) {
+    // Após uma lacuna do coletor, nem duas falhas nem um retorno comprovam continuidade.
+    if (this.lastUpdateAt !== null && now - this.lastUpdateAt > staleAfterMs) {
+      for (const report of this.active.values())
+        this.store.upsert({ ...report, state: 'interrupted', endedAt: new Date(now).toISOString() })
+      this.active.clear()
+      this.pending.clear()
+    }
+    this.lastUpdateAt = now
     const failures = observedFailures(hosts, now, staleAfterMs)
     const keys = new Set(failures.map((item) => item.key))
     for (const key of this.pending.keys()) if (!keys.has(key)) this.pending.delete(key)
@@ -219,7 +228,17 @@ export class IncidentDiagnostics {
           observedFailure: failure.observedFailure,
           cause: failure.cause,
           certainty: failure.certainty,
-          evidence: failure.evidence,
+          evidence: [...report.evidence, ...failure.evidence]
+            .filter(
+              (item, index, all) =>
+                all.findIndex(
+                  (other) =>
+                    other.source === item.source &&
+                    other.message === item.message &&
+                    other.checkedAt === item.checkedAt,
+                ) === index,
+            )
+            .slice(-50),
         }
       this.active.set(failure.key, report)
       this.store.upsert(report)
