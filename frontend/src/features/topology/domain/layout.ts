@@ -9,12 +9,20 @@ export function reconcileGraph(
   const hostIds = new Set(hosts.map((h) => h.id))
   const nodes = graph.nodes
     .filter((n) => !n.hostId || hostIds.has(n.hostId))
-    .map((n) => ({
-      ...n,
-      x: n.kind === 'junction' ? snap(n.x + 6) - 6 : snap(n.x),
-      y: n.kind === 'junction' ? snap(n.y + 6) - 6 : snap(n.y),
-      label: n.hostId ? hosts.find((h) => h.id === n.hostId)!.name : n.label,
-    }))
+    .map((original) => {
+      // Esses campos legados não aparecem em dispositivos e não têm controles de edição.
+      const n = { ...original }
+      if (n.hostId) {
+        delete n.subtitle
+        delete n.caption
+      }
+      return {
+        ...n,
+        x: n.kind === 'junction' ? snap(n.x + 6) - 6 : snap(n.x),
+        y: n.kind === 'junction' ? snap(n.y + 6) - 6 : snap(n.y),
+        label: n.hostId ? hosts.find((h) => h.id === n.hostId)!.name : n.label,
+      }
+    })
   const existing = new Set(nodes.flatMap((n) => (n.hostId ? [n.hostId] : [])))
   const right = nodes.length ? Math.max(...nodes.map((n) => n.x + nodeSize(n).width)) + 84 : 0
   const missing = hosts.filter((h) => !existing.has(h.id))

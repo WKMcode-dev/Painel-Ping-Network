@@ -101,25 +101,38 @@ export const topologySchema = z
     }
   })
 /** Erros por campo permitem localizar cada elemento sem devolver seu texto sensível. */
-export const editableTopologySchema = topologySchema.superRefine((graph, ctx) => {
-  const check = (text: string, path: (string | number)[]) => {
-    if (!safeDisplayText(text))
-      ctx.addIssue({
-        code: 'custom',
-        path,
-        message: 'Use IPs somente no cadastro do endereço, não nos textos do mapa',
-      })
-  }
-  graph.nodes.forEach((node, index) => {
-    check(node.label, ['nodes', index, 'label'])
-    check(node.subtitle ?? '', ['nodes', index, 'subtitle'])
-    check(node.caption ?? '', ['nodes', index, 'caption'])
-    node.texts?.forEach((block, blockIndex) =>
-      check(block.text, ['nodes', index, 'texts', blockIndex, 'text']),
-    )
+// Subtítulo/texto inferior de hosts foram substituídos por informações de monitoramento.
+// Normaliza somente campos que a interface não exibe nem permite editar nesses balões.
+export const editableTopologySchema = topologySchema
+  .transform((graph) => ({
+    ...graph,
+    nodes: graph.nodes.map((node) => {
+      if (!node.hostId) return node
+      const visible = { ...node }
+      delete visible.subtitle
+      delete visible.caption
+      return visible
+    }),
+  }))
+  .superRefine((graph, ctx) => {
+    const check = (text: string, path: (string | number)[]) => {
+      if (!safeDisplayText(text))
+        ctx.addIssue({
+          code: 'custom',
+          path,
+          message: 'Use IPs somente no cadastro do endereço, não nos textos do mapa',
+        })
+    }
+    graph.nodes.forEach((node, index) => {
+      check(node.label, ['nodes', index, 'label'])
+      check(node.subtitle ?? '', ['nodes', index, 'subtitle'])
+      check(node.caption ?? '', ['nodes', index, 'caption'])
+      node.texts?.forEach((block, blockIndex) =>
+        check(block.text, ['nodes', index, 'texts', blockIndex, 'text']),
+      )
+    })
+    graph.edges.forEach((edge, index) => check(edge.label, ['edges', index, 'label']))
   })
-  graph.edges.forEach((edge, index) => check(edge.label, ['edges', index, 'label']))
-})
 export const editableTopologyDocumentSchema = z.object({
   revision: z.number().int().nonnegative(),
   graph: editableTopologySchema,

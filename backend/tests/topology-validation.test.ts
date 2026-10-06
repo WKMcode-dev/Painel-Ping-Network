@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { editableTopologyDocumentSchema, topologyDocumentSchema } from '../src/validation/topology.schema.js'
 import { createTopologyRouter } from '../src/routes/topology.routes.js'
+import { reconcileGraph } from '../../frontend/src/features/topology/domain/layout.js'
 import { TopologyRepository } from '../src/repositories/topology.repository.js'
 
 const graph = () => ({
@@ -58,4 +59,39 @@ test('save returns all offending IDs and fields, masks no data in storage, and a
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
     await rm(dir, { recursive: true, force: true })
   }
+})
+
+
+test('legacy hidden host fields are removed on save without relaxing visible text validation', () => {
+  const g = graph()
+  const node = { ...g.nodes[0]!, hostId: 'device', subtitle: '192.168.1.10', caption: '::1',
+    texts: [{ id: 'note', kind: 'text' as const, text: 'Observação visível' }],
+    fill: '#123456', shape: 'cloud' as const }
+  const document = { revision: 4, graph: { ...g, nodes: [node, g.nodes[1]!] } }
+  const result = editableTopologyDocumentSchema.parse(document)
+  assert.equal(result.graph.nodes[0]!.subtitle, undefined)
+  assert.equal(result.graph.nodes[0]!.caption, undefined)
+  assert.equal(result.graph.nodes[0]!.fill, '#123456')
+  assert.deepEqual(result.graph.edges, g.edges)
+  assert.deepEqual(result.graph.nodes[0]!.texts, node.texts)
+  assert.equal(node.subtitle, '192.168.1.10')
+  for (const invalid of [
+    { ...node, label: 'Servidor 10.0.0.1' },
+    { ...node, texts: [{ id: 'note', kind: 'text' as const, text: '10.0.0.1' }] },
+    { ...node, hostId: undefined },
+  ]) assert.equal(editableTopologyDocumentSchema.safeParse({ ...document, graph: { ...g, nodes: [invalid, g.nodes[1]!] } }).success, false)
+})
+
+test('inventory reconciliation drops only hidden host fields while preserving topic subtitles and geometry', () => {
+  const g = graph()
+  const device = { ...g.nodes[0]!, hostId: 'device', subtitle: '192.168.1.10', caption: '::1' }
+  const topic = { ...g.nodes[1]!, subtitle: 'Texto do tópico', caption: 'Legenda' }
+  const result = reconcileGraph({ ...g, nodes: [device, topic] }, [{ id: 'device', name: 'Servidor', group: 'TI' }])
+  assert.equal(result.nodes[0]!.subtitle, undefined)
+  assert.equal(result.nodes[0]!.caption, undefined)
+  assert.equal(result.nodes[1]!.subtitle, topic.subtitle)
+  assert.equal(result.nodes[1]!.caption, topic.caption)
+  assert.deepEqual(result.edges, g.edges)
+  assert.equal(result.nodes[0]!.x, device.x)
+  assert.equal(device.subtitle, '192.168.1.10')
 })
