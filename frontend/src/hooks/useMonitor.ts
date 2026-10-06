@@ -3,8 +3,18 @@ import { fetchSnapshot, getWebSocketUrl, requestRefresh } from '../services/moni
 import type { ConnectionState, DashboardSnapshot } from '../types/monitor'
 
 const emptySnapshot: DashboardSnapshot = {
-  generatedAt: '', hosts: [], recentEvents: [],
-  summary: { total: 0, online: 0, offline: 0, unknown: 0, availabilityPct: 0, averageLatencyMs: null, activeIncidents: 0 },
+  generatedAt: '',
+  hosts: [],
+  recentEvents: [],
+  summary: {
+    total: 0,
+    online: 0,
+    offline: 0,
+    unknown: 0,
+    availabilityPct: 0,
+    averageLatencyMs: null,
+    activeIncidents: 0,
+  },
 }
 
 export function useMonitor() {
@@ -23,21 +33,32 @@ export function useMonitor() {
       if (disposed) return
       lastMessage = Date.now()
       staleAfter = Math.max(30000, (value.intervalMs ?? 5000) * 3)
-      setSnapshot(previous => Date.parse(value.generatedAt) < Date.parse(previous.generatedAt) ? previous : value)
+      setSnapshot((previous) =>
+        Date.parse(value.generatedAt) < Date.parse(previous.generatedAt) ? previous : value,
+      )
       setConnection('live')
     }
     const connect = async () => {
       if (disposed || connecting) return
       connecting = true
       try {
-        accept(await fetchSnapshot(AbortSignal.any([controller.signal, AbortSignal.timeout(10000)])))
+        accept(
+          await fetchSnapshot(AbortSignal.any([controller.signal, AbortSignal.timeout(10000)])),
+        )
         if (disposed) return
         socket = new WebSocket(getWebSocketUrl())
         socket.onmessage = (event) => {
           try {
             const message = JSON.parse(event.data)
-            if (message.type === 'snapshot' && Array.isArray(message.payload?.hosts) && message.payload?.summary) accept(message.payload)
-          } catch { setConnection('reconnecting') }
+            if (
+              message.type === 'snapshot' &&
+              Array.isArray(message.payload?.hosts) &&
+              message.payload?.summary
+            )
+              accept(message.payload)
+          } catch {
+            setConnection('reconnecting')
+          }
         }
         socket.onerror = () => socket?.close()
         socket.onclose = () => {
@@ -50,7 +71,9 @@ export function useMonitor() {
           setConnection('reconnecting')
           retry = window.setTimeout(connect, 5000)
         }
-      } finally { connecting = false }
+      } finally {
+        connecting = false
+      }
     }
     void connect()
     const watchdog = window.setInterval(() => {
@@ -71,7 +94,9 @@ export function useMonitor() {
   const refresh = useCallback(async () => {
     if (connection !== 'live') return
     const value = await requestRefresh()
-    setSnapshot(previous => Date.parse(value.generatedAt) < Date.parse(previous.generatedAt) ? previous : value)
+    setSnapshot((previous) =>
+      Date.parse(value.generatedAt) < Date.parse(previous.generatedAt) ? previous : value,
+    )
   }, [connection])
   return { snapshot, connection, refresh }
 }

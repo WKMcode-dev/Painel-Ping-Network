@@ -20,8 +20,29 @@
   box-shadow: 0 0 0 0.2rem color-mix(in srgb, currentColor 16%, transparent);
 }
 
-.online { color: var(--success); background: var(--success-soft); border-color: var(--success-border); }
-.offline { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-border); }
-.unknown { color: var(--muted); background: var(--surface-2); border-color: var(--border); }
-.compact { width: 1rem; min-height: 1rem; padding: 0; border: 0; background: transparent; }
-.compact .dot { width: 0.5rem; height: 0.5rem; }
+.online {
+  color: var(--success);
+  background: var(--success-soft);
+  border-color: var(--success-border);
+}
+.offline {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+}
+.unknown {
+  color: var(--muted);
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+.compact {
+  width: 1rem;
+  min-height: 1rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.compact .dot {
+  width: 0.5rem;
+  height: 0.5rem;
+}

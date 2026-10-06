@@ -11,7 +11,11 @@ export function formatDateTime(value: string | null): string {
 }
 
 export function formatLatency(value: number | null): string {
-  return value === null ? '—' : value === 0 ? '<1 ms' : `${value < 10 ? value.toFixed(1) : Math.round(value)} ms`
+  return value === null
+    ? '—'
+    : value === 0
+      ? '<1 ms'
+      : `${value < 10 ? value.toFixed(1) : Math.round(value)} ms`
 }
 
 export function formatPercent(value: number): string {

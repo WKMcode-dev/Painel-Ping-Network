@@ -1,45 +1,18 @@
-import { safeDisplayText } from '../utils/display-text.js'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { dataFile } from '../storage/data-directory.js'
-import { z } from 'zod'
 
-const id = z.string().min(1).max(160)
-const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Use uma cor hexadecimal #RRGGBB')
-export const topologySchema = z.object({
-  nodes: z.array(z.object({
-    id, kind: z.literal('junction').optional(), hostId: z.string().min(1).max(80).optional(), label: z.string().trim().min(1).max(1000), subtitle: z.string().max(2000).optional(), caption: z.string().max(2000).optional(),
-    textAlign: z.enum(['left', 'center', 'right']).optional(),
-    texts: z.array(z.object({ id, kind: z.enum(['title', 'subtitle', 'text']), text: z.string().max(4000), align: z.enum(['left', 'center', 'right']).optional() })).max(30).refine(texts => new Set(texts.map(t => t.id)).size === texts.length, 'IDs de texto duplicados').optional(),
-    x: z.number().finite().min(-200000).max(200000), y: z.number().finite().min(-200000).max(200000),
-    color: z.enum(['neutral', 'blue', 'green', 'orange', 'purple', 'pink']).default('neutral'),
-    shape: z.enum(['rounded', 'rectangle', 'pill', 'ellipse', 'circle', 'cloud', 'diamond']).optional(),
-    width: z.number().int().min(96).max(576).optional(), height: z.number().int().min(72).max(576).optional(),
-    fill: hexColor.optional(), outline: hexColor.optional(), textColor: hexColor.optional(),
-  })).max(600),
-  edges: z.array(z.object({ id, source: id, target: id, label: z.string().max(80).default(''),
-    sourceSide: z.enum(['top', 'right', 'bottom', 'left']).optional(), targetSide: z.enum(['top', 'right', 'bottom', 'left']).optional(),
-    sourceOffset: z.number().finite().min(.05).max(.95).optional(), targetOffset: z.number().finite().min(.05).max(.95).optional(),
-    stroke: hexColor.optional(), labelColor: hexColor.optional(), lineWidth: z.number().int().min(1).max(8).optional(),
-    lineStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
-    bends: z.array(z.object({ x: z.number().finite().min(-200000).max(200000), y: z.number().finite().min(-200000).max(200000) })).max(24).optional(),
-  })).max(2000),
-  appearance: z.object({ background: hexColor.optional(), gridColor: hexColor.optional(), showGrid: z.boolean().optional() }).optional(),
-}).superRefine((graph, ctx) => {
-  if (graph.nodes.some(n => n.kind === 'junction' && n.hostId)) ctx.addIssue({ code: 'custom', message: 'Junções não podem ser dispositivos' })
-  const ids = new Set(graph.nodes.map(n => n.id))
-  const hosts = graph.nodes.flatMap(n => n.hostId ? [n.hostId] : [])
-  if (ids.size !== graph.nodes.length || new Set(hosts).size !== hosts.length || new Set(graph.edges.map(e => e.id)).size !== graph.edges.length) {
-    ctx.addIssue({ code: 'custom', message: 'Nós ou conexões duplicados' })
-  }
-  if (graph.edges.some(e => e.source === e.target || !ids.has(e.source) || !ids.has(e.target))) {
-    ctx.addIssue({ code: 'custom', message: 'Conexão sem origem/destino válido' })
-  }
-})
-export const editableTopologySchema = topologySchema.refine(g => g.nodes.every(n => [n.label, n.subtitle ?? '', n.caption ?? '', ...(n.texts?.map(t => t.text) ?? [])].every(safeDisplayText)) && g.edges.every(e => safeDisplayText(e.label)), 'Use IPs somente no cadastro do endereço, não nos textos do mapa')
-export const editableTopologyDocumentSchema = z.object({ revision: z.number().int().nonnegative(), graph: editableTopologySchema })
-export const topologyDocumentSchema = z.object({ revision: z.number().int().nonnegative(), graph: topologySchema })
-export type TopologyDocument = z.infer<typeof topologyDocumentSchema>
+import { topologyDocumentSchema } from '../validation/topology.schema.js'
+import type { TopologyDocument } from '../validation/topology.schema.js'
+// Compatibilidade para integrações existentes; novas regras pertencem a validation.
+export {
+  topologySchema,
+  topologyDocumentSchema,
+  editableTopologySchema,
+  editableTopologyDocumentSchema,
+} from '../validation/topology.schema.js'
+export type { TopologyDocument } from '../validation/topology.schema.js'
+
 export class TopologyConflict extends Error {}
 
 /** Single-process optimistic concurrency: stale editors cannot overwrite a newer map. */
@@ -47,8 +20,9 @@ export class TopologyRepository {
   private queue: Promise<unknown> = Promise.resolve()
   constructor(private readonly path = dataFile('topology.json')) {}
   async load(): Promise<TopologyDocument> {
-    try { return topologyDocumentSchema.parse(JSON.parse(await readFile(this.path, 'utf8'))) }
-    catch (error) {
+    try {
+      return topologyDocumentSchema.parse(JSON.parse(await readFile(this.path, 'utf8')))
+    } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       return { revision: 0, graph: { nodes: [], edges: [] } }
     }
@@ -56,7 +30,8 @@ export class TopologyRepository {
   save(document: TopologyDocument): Promise<TopologyDocument> {
     const operation = this.queue.then(async () => {
       const current = await this.load()
-      if (current.revision !== document.revision) throw new TopologyConflict('Outra sessão alterou o mapa. Recarregue antes de salvar.')
+      if (current.revision !== document.revision)
+        throw new TopologyConflict('Outra sessão alterou o mapa. Recarregue antes de salvar.')
       const next = topologyDocumentSchema.parse({ ...document, revision: current.revision + 1 })
       await mkdir(dirname(this.path), { recursive: true })
       await writeFile(this.path + '.tmp', JSON.stringify(next, null, 2))

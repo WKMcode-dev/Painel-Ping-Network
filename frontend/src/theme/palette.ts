@@ -1,6 +1,13 @@
 export type Theme = 'light' | 'dark'
-export const colorKeys = ['accent', 'success', 'danger', 'warning', 'background', 'surface'] as const
-export type ColorKey = typeof colorKeys[number]
+export const colorKeys = [
+  'accent',
+  'success',
+  'danger',
+  'warning',
+  'background',
+  'surface',
+] as const
+export type ColorKey = (typeof colorKeys)[number]
 export type Colors = Partial<Record<ColorKey, string>>
 export const presets = [
   { name: 'Grafite', light: '#37352f', dark: '#d4d4d4' },
@@ -14,23 +21,41 @@ export const presets = [
   { name: 'Vermelho', light: '#b34b45', dark: '#de928d' },
 ]
 export const defaults: Record<Theme, Record<ColorKey, string>> = {
-  light: { accent: '#37352f', success: '#427558', danger: '#b34b45', warning: '#896300', background: '#ffffff', surface: '#f7f7f5' },
-  dark: { accent: '#d4d4d4', success: '#8db69b', danger: '#de928d', warning: '#d3b66c', background: '#191919', surface: '#202020' },
+  light: {
+    accent: '#37352f',
+    success: '#427558',
+    danger: '#b34b45',
+    warning: '#896300',
+    background: '#ffffff',
+    surface: '#f7f7f5',
+  },
+  dark: {
+    accent: '#d4d4d4',
+    success: '#8db69b',
+    danger: '#de928d',
+    warning: '#d3b66c',
+    background: '#191919',
+    surface: '#202020',
+  },
 }
-export const validColor = (value: unknown): value is string => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)
+export const validColor = (value: unknown): value is string =>
+  typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)
 export function readableText(color: string): string {
   const channels = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16) / 255)
-  const [r, g, b] = channels.map((c) => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4)
-  return .2126 * r + .7152 * g + .0722 * b > .179 ? '#202020' : '#f5f5f5'
+  const [r, g, b] = channels.map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.179 ? '#202020' : '#f5f5f5'
 }
 export function loadColors(): Record<Theme, Colors> {
   const result: Record<Theme, Colors> = { light: {}, dark: {} }
   try {
     const saved = JSON.parse(localStorage.getItem('painel-ping:colors') ?? '{}')
-    for (const theme of ['light', 'dark'] as const) for (const key of colorKeys) {
-      if (validColor(saved?.[theme]?.[key])) result[theme][key] = saved[theme][key]
-    }
-  } catch { /* Invalid or blocked storage falls back to defaults. */ }
+    for (const theme of ['light', 'dark'] as const)
+      for (const key of colorKeys) {
+        if (validColor(saved?.[theme]?.[key])) result[theme][key] = saved[theme][key]
+      }
+  } catch {
+    /* Invalid or blocked storage falls back to defaults. */
+  }
   return result
 }
 export function applyAppearance(theme: Theme, colors: Colors) {

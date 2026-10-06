@@ -1,14 +1,117 @@
-.sidebar { position: sticky; top: 4.5rem; align-self: start; height: calc(100dvh - 4.5rem); min-height: 16rem; padding: 1rem .7rem; border-right: 1px solid var(--border); background: var(--surface); }
-.top { display: flex; align-items: center; justify-content: space-between; gap: .35rem; min-height: 2.5rem; margin-bottom: .85rem; padding-left: .6rem; color: var(--muted); font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
-.top button { display: grid; flex: 0 0 auto; place-items: center; width: 2.4rem; height: 2.4rem; padding: 0; border: 1px solid var(--border); border-radius: .6rem; background: var(--background); color: var(--muted); cursor: pointer; }
-.sidebar nav { display: grid; gap: .35rem; }
-.item { display: flex; align-items: center; width: 100%; min-height: 2.75rem; gap: .7rem; padding: 0 .7rem; border: 1px solid transparent; border-radius: .65rem; background: transparent; color: var(--muted); font: inherit; font-size: .82rem; text-align: left; cursor: pointer; white-space: nowrap; }
-.item svg { flex: 0 0 auto; }
-.item:hover, .top button:hover { color: var(--text); background: var(--surface-hover); }
-.item[data-active=true] { color: var(--accent); border-color: var(--accent-border); background: var(--accent-soft); font-weight: 700; }
-.sidebar[data-collapsed=true] { padding-inline: .55rem; }
-.sidebar[data-collapsed=true] .top { justify-content: center; padding: 0; }
-.sidebar[data-collapsed=true] .item { justify-content: center; padding: 0; }
-.sidebar[data-collapsed=true] .item span { display: none; }
-.sidebar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-@media (max-width: 720px) { .sidebar { top: 0; height: auto; min-height: 0; padding: .4rem .7rem; border-right: 0; border-bottom: 1px solid var(--border); } .top { display: none; } .sidebar nav { display: flex; } .item, .sidebar[data-collapsed=true] .item { justify-content: center; width: auto; gap: .45rem; min-height: 2.4rem; padding: 0 .8rem; } .sidebar[data-collapsed=true] .item span { display: inline; } }
+.sidebar {
+  position: sticky;
+  top: 4.5rem;
+  align-self: start;
+  height: calc(100dvh - 4.5rem);
+  min-height: 16rem;
+  padding: 1rem 0.7rem;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  min-height: 2.5rem;
+  margin-bottom: 0.85rem;
+  padding-left: 0.6rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.top button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: var(--background);
+  color: var(--muted);
+  cursor: pointer;
+}
+.sidebar nav {
+  display: grid;
+  gap: 0.35rem;
+}
+.item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 2.75rem;
+  gap: 0.7rem;
+  padding: 0 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 0.65rem;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.item svg {
+  flex: 0 0 auto;
+}
+.item:hover,
+.top button:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+.item[data-active='true'] {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  font-weight: 700;
+}
+.sidebar[data-collapsed='true'] {
+  padding-inline: 0.55rem;
+}
+.sidebar[data-collapsed='true'] .top {
+  justify-content: center;
+  padding: 0;
+}
+.sidebar[data-collapsed='true'] .item {
+  justify-content: center;
+  padding: 0;
+}
+.sidebar[data-collapsed='true'] .item span {
+  display: none;
+}
+.sidebar button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (max-width: 720px) {
+  .sidebar {
+    top: 0;
+    height: auto;
+    min-height: 0;
+    padding: 0.4rem 0.7rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .top {
+    display: none;
+  }
+  .sidebar nav {
+    display: flex;
+  }
+  .item,
+  .sidebar[data-collapsed='true'] .item {
+    justify-content: center;
+    width: auto;
+    gap: 0.45rem;
+    min-height: 2.4rem;
+    padding: 0 0.8rem;
+  }
+  .sidebar[data-collapsed='true'] .item span {
+    display: inline;
+  }
+}

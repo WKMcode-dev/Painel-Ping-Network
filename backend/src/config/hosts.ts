@@ -11,7 +11,7 @@ export const monitoredHosts: HostDefinition[] = [
     address: '127.0.0.1',
     location: 'Datacenter',
     group: 'Infraestrutura',
-    description: 'Exemplo local; substitua pelo endereço real do gateway' ,
+    description: 'Exemplo local; substitua pelo endereço real do gateway',
   },
   {
     id: 'dns-cloudflare',

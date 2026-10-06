@@ -6,9 +6,15 @@ import { env } from '../config/env.js'
 import type { StatusEvent } from '../types/monitor.js'
 
 export const eventSchema = z.object({
-  id: z.string(), hostId: z.string(), type: z.enum(['down', 'recovery', 'interrupted', 'gap', 'dns_change', 'paused', 'maintenance']),
-  firstFailureAt: z.string().datetime().optional(), confirmedAt: z.string().datetime().optional(), previousCheckAt: z.string().datetime().nullable().optional(),
-  timestamp: z.string().datetime(), durationMs: z.number().nonnegative().nullable(), message: z.string(),
+  id: z.string(),
+  hostId: z.string(),
+  type: z.enum(['down', 'recovery', 'interrupted', 'gap', 'dns_change', 'paused', 'maintenance']),
+  firstFailureAt: z.string().datetime().optional(),
+  confirmedAt: z.string().datetime().optional(),
+  previousCheckAt: z.string().datetime().nullable().optional(),
+  timestamp: z.string().datetime(),
+  durationMs: z.number().nonnegative().nullable(),
+  message: z.string(),
 })
 const storagePath = dataFile('status-history.json')
 
@@ -29,7 +35,9 @@ export class HistoryRepository {
     }
   }
 
-  async flush(): Promise<void> { await this.writeQueue }
+  async flush(): Promise<void> {
+    await this.writeQueue
+  }
 
   getAll(): StatusEvent[] {
     this.prune()
@@ -49,7 +57,9 @@ export class HistoryRepository {
 
   private prune(): void {
     const cutoff = Date.now() - env.DATA_RETENTION_DAYS * 24 * 60 * 60 * 1000
-    this.events = this.events.filter((event) => Date.parse(event.timestamp) >= cutoff).slice(0, 5000)
+    this.events = this.events
+      .filter((event) => Date.parse(event.timestamp) >= cutoff)
+      .slice(0, 5000)
   }
 
   private async persist(): Promise<void> {

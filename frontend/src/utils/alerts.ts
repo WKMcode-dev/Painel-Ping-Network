@@ -5,11 +5,20 @@ import type { PanelPreferences } from '../types/config'
 export class AlertTracker {
   private seen: Set<string> | null = null
   accept(snapshot: DashboardSnapshot, preferences: PanelPreferences, now: number): StatusEvent[] {
-    const ids = new Set(snapshot.recentEvents.map(e => e.id))
-    if (!this.seen) { this.seen = ids; return [] }
-    const fresh = snapshot.recentEvents.filter(e => !this.seen!.has(e.id) && (e.type === 'down' || e.type === 'recovery')
-      && !preferences.hidden.includes(e.hostId) && snapshot.hosts.some(h => h.id === e.hostId && !h.suspended)
-      && now - Date.parse(e.timestamp) >= 0 && now - Date.parse(e.timestamp) < 60000)
+    const ids = new Set(snapshot.recentEvents.map((e) => e.id))
+    if (!this.seen) {
+      this.seen = ids
+      return []
+    }
+    const fresh = snapshot.recentEvents.filter(
+      (e) =>
+        !this.seen!.has(e.id) &&
+        (e.type === 'down' || e.type === 'recovery') &&
+        !preferences.hidden.includes(e.hostId) &&
+        snapshot.hosts.some((h) => h.id === e.hostId && !h.suspended) &&
+        now - Date.parse(e.timestamp) >= 0 &&
+        now - Date.parse(e.timestamp) < 60000,
+    )
     this.seen = ids
     return preferences.alerts && now >= preferences.mutedUntil ? fresh : []
   }

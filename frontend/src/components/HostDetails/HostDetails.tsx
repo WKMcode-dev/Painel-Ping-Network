@@ -1,10 +1,10 @@
+import { HostPerformance } from './HostPerformance'
+import { HostIncidentHistory } from './HostIncidentHistory'
 import { Activity, Clock, MapPin, Network, ShieldCheck, TimerReset, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { HostSnapshot, StatusEvent } from '../../types/monitor'
-import { formatDateTime, formatDuration, formatLatency, formatPercent } from '../../utils/formatters'
-import { Sparkline } from '../Sparkline/Sparkline'
+import { formatDateTime, formatDuration, formatLatency } from '../../utils/formatters'
 import { StatusBadge } from '../StatusBadge/StatusBadge'
-import { incidentRows } from '../../utils/panel'
 import { fetchHostEvents } from '../../services/monitor-api'
 import styles from './HostDetails.module.css'
 
@@ -28,96 +28,151 @@ export function HostDetails({ host, events, onClose }: HostDetailsProps) {
     if (!hostId) return
     const controller = new AbortController()
     setEventError(false)
-    void fetchHostEvents(hostId, controller.signal).then((items) => setLoaded({ id: hostId, events: items }))
-      .catch(() => { if (!controller.signal.aborted) setEventError(true) })
+    void fetchHostEvents(hostId, controller.signal)
+      .then((items) => setLoaded({ id: hostId, events: items }))
+      .catch(() => {
+        if (!controller.signal.aborted) setEventError(true)
+      })
     return () => controller.abort()
   }, [hostId, events])
   if (!host) return null
-  const hostEvents = loaded?.id === host.id ? loaded.events : events.filter((event) => event.hostId === host.id)
-  const incidents = incidentRows(hostEvents)
+  const hostEvents =
+    loaded?.id === host.id ? loaded.events : events.filter((event) => event.hostId === host.id)
 
   return (
-    <dialog ref={dialog} className={styles.backdrop} onClose={onClose} aria-labelledby="host-details-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+    <dialog
+      ref={dialog}
+      className={styles.backdrop}
+      onClose={onClose}
+      aria-labelledby="host-details-title"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
       <aside className={styles.panel}>
         <div className={styles.header}>
-          <div className={styles.icon}><Network size={22} /></div>
-          <div><small>{host.group}</small><h2 id="host-details-title">{host.name}</h2><span>{host.address}</span></div>
+          <div className={styles.icon}>
+            <Network size={22} />
+          </div>
+          <div>
+            <small>{host.group}</small>
+            <h2 id="host-details-title">{host.name}</h2>
+            <span>{host.address}</span>
+          </div>
           {host.suspended ? <span>{host.suspended}</span> : <StatusBadge status={host.status} />}
-          <button onClick={onClose} type="button" title="Fechar detalhes"><X size={19} /><span className="sr-only">Fechar</span></button>
+          <button onClick={onClose} type="button" title="Fechar detalhes">
+            <X size={19} />
+            <span className="sr-only">Fechar</span>
+          </button>
         </div>
 
         <div className={styles.content}>
-          {host.status === 'offline' ? <div className={styles.incident}><span><Activity size={18} /></span><div><small>Incidente ativo</small><strong>Sem resposta há {formatDuration(host.currentDowntimeMs)}</strong><p>{host.lastError ?? `Primeira confirmação em ${formatDateTime(host.lastOfflineAt)}`}</p></div></div> : null}
-
-          <section>
-            <h3>Desempenho recente <span>últimas {host.history.length} verificações</span></h3>
-            <div className={styles.largeChart}><Sparkline points={host.history} offline={host.status === 'offline'} /></div>
-            <div className={styles.metrics}>
-              <Metric label="Atual" value={formatLatency(host.latencyMs)} />
-              <Metric label="Média" value={formatLatency(host.averageLatencyMs)} />
-              <Metric label="Mínima" value={formatLatency(host.minLatencyMs)} />
-              <Metric label="Máxima" value={formatLatency(host.maxLatencyMs)} />
-              <Metric label="p95" value={formatLatency(host.p95LatencyMs ?? null)} />
-              <Metric label="Variação (jitter)" value={formatLatency(host.jitterMs ?? null)} />
-              <Metric label="Disponibilidade observada" value={host.observedMs ? formatPercent(host.availabilityPct) : '—'} />
-              <Metric label="Perda" value={host.history.length ? formatPercent(host.packetLossPct) : '—'} />
-              <Metric label="Respostas na janela" value={host.history.length ? formatPercent(host.responsePct ?? host.availabilityPct) : '—'} />
+          {host.status === 'offline' ? (
+            <div className={styles.incident}>
+              <span>
+                <Activity size={18} />
+              </span>
+              <div>
+                <small>Incidente ativo</small>
+                <strong>Sem resposta há {formatDuration(host.currentDowntimeMs)}</strong>
+                <p>
+                  {host.lastError ??
+                    `Primeira confirmação em ${formatDateTime(host.lastOfflineAt)}`}
+                </p>
+              </div>
             </div>
-          </section>
+          ) : null}
 
-          <p>Janela ICMP: {host.sampleCount ?? host.history.length} amostras válidas, de {formatDateTime(host.sampleWindowStart ?? null)} até {formatDateTime(host.sampleWindowEnd ?? null)}. Indicadores de tempo desde o início desta sessão de coleta.</p>
-          {host.serviceChecks?.length ? <section><h3>Serviços — independentes do ICMP</h3>{host.serviceChecks.map(check => <p key={check.id}><strong>{check.type.toUpperCase()} {host.checks?.find(item => item.id === check.id)?.port ?? host.checks?.find(item => item.id === check.id)?.url}</strong> · {{ available: 'Disponível', unavailable: 'Indisponível', unknown: 'Sem verificação' }[check.status]} · {formatLatency(check.latencyMs)} · {formatDateTime(check.checkedAt)}{check.error && ` · ${check.error}`}</p>)}</section> : null}
+          <HostPerformance host={host} />
+          <p>
+            Janela ICMP: {host.sampleCount ?? host.history.length} amostras válidas, de{' '}
+            {formatDateTime(host.sampleWindowStart ?? null)} até{' '}
+            {formatDateTime(host.sampleWindowEnd ?? null)}. Indicadores de tempo desde o início
+            desta sessão de coleta.
+          </p>
+          {host.serviceChecks?.length ? (
+            <section>
+              <h3>Serviços — independentes do ICMP</h3>
+              {host.serviceChecks.map((check) => (
+                <p key={check.id}>
+                  <strong>
+                    {check.type.toUpperCase()}{' '}
+                    {host.checks?.find((item) => item.id === check.id)?.port ??
+                      host.checks?.find((item) => item.id === check.id)?.url}
+                  </strong>{' '}
+                  ·{' '}
+                  {
+                    {
+                      available: 'Disponível',
+                      unavailable: 'Indisponível',
+                      unknown: 'Sem verificação',
+                    }[check.status]
+                  }{' '}
+                  · {formatLatency(check.latencyMs)} · {formatDateTime(check.checkedAt)}
+                  {check.error && ` · ${check.error}`}
+                </p>
+              ))}
+            </section>
+          ) : null}
           {host.lastError && host.status !== 'offline' && <p role="status">{host.lastError}</p>}
           <section>
             <h3>Informações do dispositivo</h3>
             <dl className={styles.info}>
-              <Info icon={Network} label="IP efetivamente verificado" value={host.resolvedAddress ?? '—'} />
-              <Info icon={Clock} label="Idade da verificação" value={host.checkAgeMs == null ? '—' : formatDuration(host.checkAgeMs)} />
-              <Info icon={Clock} label="Tempo observado" value={formatDuration(host.observedMs ?? 0)} />
-              <Info icon={Clock} label="Tempo desconhecido" value={formatDuration(host.unknownMs ?? 0)} />
-              <Info icon={Clock} label="Pausa / manutenção" value={`${formatDuration(host.pausedMs ?? 0)} / ${formatDuration(host.maintenanceMs ?? 0)}`} />
+              <Info
+                icon={Network}
+                label="IP efetivamente verificado"
+                value={host.resolvedAddress ?? '—'}
+              />
+              <Info
+                icon={Clock}
+                label="Idade da verificação"
+                value={host.checkAgeMs == null ? '—' : formatDuration(host.checkAgeMs)}
+              />
+              <Info
+                icon={Clock}
+                label="Tempo observado"
+                value={formatDuration(host.observedMs ?? 0)}
+              />
+              <Info
+                icon={Clock}
+                label="Tempo desconhecido"
+                value={formatDuration(host.unknownMs ?? 0)}
+              />
+              <Info
+                icon={Clock}
+                label="Pausa / manutenção"
+                value={`${formatDuration(host.pausedMs ?? 0)} / ${formatDuration(host.maintenanceMs ?? 0)}`}
+              />
               <Info icon={MapPin} label="Local" value={host.location} />
               <Info icon={ShieldCheck} label="TTL recebido" value={host.ttl?.toString() ?? '—'} />
-              <Info icon={Clock} label="Última verificação" value={formatDateTime(host.lastCheckedAt)} />
-              <Info icon={TimerReset} label="Última transição" value={formatDateTime(host.lastTransitionAt)} />
+              <Info
+                icon={Clock}
+                label="Última verificação"
+                value={formatDateTime(host.lastCheckedAt)}
+              />
+              <Info
+                icon={TimerReset}
+                label="Última transição"
+                value={formatDateTime(host.lastTransitionAt)}
+              />
             </dl>
           </section>
 
-          <section>
-            <h3>Quedas e retornos</h3>
-            <p>Histórico retido no servidor. Durações são observadas; períodos sem coleta não comprovam indisponibilidade contínua.</p>
-            <div className={styles.tableScroll}><table className={styles.incidentTable}>
-              <caption className="sr-only">Registro de quedas e retornos do dispositivo {host.name}</caption>
-              <thead><tr><th scope="col">Situação</th><th scope="col">Primeira falha</th><th scope="col">Queda confirmada</th><th scope="col">Retorno / encerramento</th><th scope="col">Duração observada</th></tr></thead>
-              <tbody>{incidents.map(row => <tr key={row.id}>
-                <td><span className={styles.incidentTag} data-state={row.interrupted ? 'administrative' : row.end ? 'recovered' : 'active'}>{row.interrupted ? 'Encerrado' : row.end ? 'Restabelecido' : 'Em andamento'}</span></td>
-                <td>{formatDateTime(row.firstFailureAt ?? row.start)}</td>
-                <td><time dateTime={row.start}>{formatDateTime(row.start)}</time></td>
-                <td>{row.end ? <time dateTime={row.end}>{formatDateTime(row.end)}</time> : 'Aguardando retorno'}</td>
-                <td>{row.duration != null ? formatDuration(row.duration) : !row.end && !row.interrupted && host.status === 'offline' ? formatDuration(host.currentDowntimeMs) : '—'}</td>
-              </tr>)}{!incidents.length && <tr><td colSpan={5} className={styles.emptyRow}>Nenhuma queda registrada no período retido.</td></tr>}</tbody>
-            </table></div>
-            <h3>Histórico de eventos</h3>
-            {eventError && <p role="status">Não foi possível carregar o histórico completo.</p>}
-            <div className={styles.timeline}>
-              {hostEvents.length ? hostEvents.map((event) => (
-                <div key={event.id} className={styles.event} data-type={event.type}>
-                  <span className={styles.eventDot} />
-                  <div><strong>{{ down: 'Queda confirmada', recovery: 'Conexão restabelecida', interrupted: 'Observação do incidente encerrada', gap: 'Período sem coleta', dns_change: 'Alteração de DNS', paused: 'Monitoramento pausado', maintenance: 'Manutenção programada' }[event.type]}</strong><p>{event.message}</p><small>{formatDateTime(event.timestamp)}{event.durationMs != null ? ` • indisponível por ${formatDuration(event.durationMs)}` : ''}</small></div>
-                </div>
-              )) : <p className={styles.noEvents}>Nenhuma mudança de estado no histórico retido.</p>}
-            </div>
-          </section>
+          <HostIncidentHistory host={host} hostEvents={hostEvents} eventError={eventError} />
         </div>
       </aside>
     </dialog>
   )
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return <div><small>{label}</small><strong>{value}</strong></div>
-}
-
 function Info({ icon: Icon, label, value }: { icon: typeof MapPin; label: string; value: string }) {
-  return <div><dt><Icon size={15} />{label}</dt><dd>{value}</dd></div>
+  return (
+    <div>
+      <dt>
+        <Icon size={15} />
+        {label}
+      </dt>
+      <dd>{value}</dd>
+    </div>
+  )
 }

@@ -1,4 +1,25 @@
-.admin-access { max-width: 440px; border: 1px solid var(--border); border-radius: 12px; padding: 24px; background: var(--surface); color: var(--text); }
-.admin-access::backdrop { background: rgb(0 0 0 / 40%); }
-.admin-access form, .admin-access label { display: flex; flex-direction: column; gap: 12px; }
-.admin-access input, .admin-access button { padding: 10px; background: var(--background); color: var(--text); border: 1px solid var(--border); border-radius: 6px; }
+.admin-access {
+  max-width: 440px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  background: var(--surface);
+  color: var(--text);
+}
+.admin-access::backdrop {
+  background: rgb(0 0 0 / 40%);
+}
+.admin-access form,
+.admin-access label {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.admin-access input,
+.admin-access button {
+  padding: 10px;
+  background: var(--background);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}

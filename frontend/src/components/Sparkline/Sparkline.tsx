@@ -20,7 +20,12 @@ export function Sparkline({ points, offline = false }: SparklineProps) {
     .join(' ')
 
   return (
-    <svg className={`${styles.chart} ${offline ? styles.offline : ''}`} viewBox="0 0 100 40" preserveAspectRatio="none" aria-label="Histórico recente de latência">
+    <svg
+      className={`${styles.chart} ${offline ? styles.offline : ''}`}
+      viewBox="0 0 100 40"
+      preserveAspectRatio="none"
+      aria-label="Histórico recente de latência"
+    >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="currentColor" stopOpacity=".28" />
@@ -28,10 +33,12 @@ export function Sparkline({ points, offline = false }: SparklineProps) {
         </linearGradient>
       </defs>
       <line x1="0" y1="36" x2="100" y2="36" className={styles.guide} />
-      {coordinates ? <>
-        <polygon points={`0,40 ${coordinates} 100,40`} fill={`url(#${gradientId})`} />
-        <polyline points={coordinates} className={styles.line} />
-      </> : null}
+      {coordinates ? (
+        <>
+          <polygon points={`0,40 ${coordinates} 100,40`} fill={`url(#${gradientId})`} />
+          <polyline points={coordinates} className={styles.line} />
+        </>
+      ) : null}
     </svg>
   )
 }

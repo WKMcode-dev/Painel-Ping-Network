@@ -1,5 +1,20 @@
-export interface ServiceCheck { id: string; type: 'tcp' | 'http'; port?: number; url?: string; expectedStatus?: number }
-export interface ServiceResult { id: string; type: 'tcp' | 'http'; status: 'available' | 'unavailable' | 'unknown'; checkedAt: string; latencyMs: number | null; error?: string; statusCode?: number; resolvedAddress?: string }
+export interface ServiceCheck {
+  id: string
+  type: 'tcp' | 'http'
+  port?: number
+  url?: string
+  expectedStatus?: number
+}
+export interface ServiceResult {
+  id: string
+  type: 'tcp' | 'http'
+  status: 'available' | 'unavailable' | 'unknown'
+  checkedAt: string
+  latencyMs: number | null
+  error?: string
+  statusCode?: number
+  resolvedAddress?: string
+}
 
 export type HostStatus = 'online' | 'offline' | 'unknown'
 

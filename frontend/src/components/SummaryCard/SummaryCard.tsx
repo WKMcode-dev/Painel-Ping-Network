@@ -9,12 +9,20 @@ interface SummaryCardProps {
   tone?: 'neutral' | 'success' | 'danger' | 'accent'
 }
 
-export function SummaryCard({ label, value, detail, icon: Icon, tone = 'neutral' }: SummaryCardProps) {
+export function SummaryCard({
+  label,
+  value,
+  detail,
+  icon: Icon,
+  tone = 'neutral',
+}: SummaryCardProps) {
   return (
     <article className={`${styles.card} ${styles[tone]}`}>
       <div className={styles.topline}>
         <span>{label}</span>
-        <span className={styles.icon}><Icon size={18} strokeWidth={1.8} /></span>
+        <span className={styles.icon}>
+          <Icon size={18} strokeWidth={1.8} />
+        </span>
       </div>
       <strong>{value}</strong>
       <small>{detail}</small>

@@ -22,19 +22,50 @@ const filters: Array<{ value: StatusFilter; label: string }> = [
   { value: 'unknown', label: 'Verificando' },
 ]
 
-export function Toolbar({ query, filter, total, onQueryChange, onFilterChange, onRefresh, refreshing, canRefresh }: ToolbarProps) {
+export function Toolbar({
+  query,
+  filter,
+  total,
+  onQueryChange,
+  onFilterChange,
+  onRefresh,
+  refreshing,
+  canRefresh,
+}: ToolbarProps) {
   return (
     <div className={styles.toolbar}>
-      <div className={styles.title}><strong>Dispositivos monitorados</strong><span>{total} exibidos</span></div>
+      <div className={styles.title}>
+        <strong>Dispositivos monitorados</strong>
+        <span>{total} exibidos</span>
+      </div>
       <label className={styles.search}>
         <Search size={16} aria-hidden="true" />
         <span className="sr-only">Buscar dispositivo</span>
-        <input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Buscar nome, IP ou local…" />
+        <input
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="Buscar nome, IP ou local…"
+        />
       </label>
       <div className={styles.filters} aria-label="Filtrar por status">
-        {filters.map((item) => <button key={item.value} className={filter === item.value ? styles.active : ''} onClick={() => onFilterChange(item.value)} type="button">{item.label}</button>)}
+        {filters.map((item) => (
+          <button
+            key={item.value}
+            className={filter === item.value ? styles.active : ''}
+            onClick={() => onFilterChange(item.value)}
+            type="button"
+          >
+            {item.label}
+          </button>
+        ))}
       </div>
-      <button className={styles.refresh} onClick={onRefresh} disabled={!canRefresh || refreshing} type="button" title="Verificar agora">
+      <button
+        className={styles.refresh}
+        onClick={onRefresh}
+        disabled={!canRefresh || refreshing}
+        type="button"
+        title="Verificar agora"
+      >
         <RefreshCw size={16} className={refreshing ? styles.spinning : ''} />
         <span>Atualizar</span>
       </button>

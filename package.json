@@ -1,6 +1,6 @@
 {
   "name": "painel-ping",
-  "version": "1.10.1",
+  "version": "1.10.2",
   "private": true,
   "workspaces": [
     "frontend",
@@ -11,10 +11,13 @@
     "build": "npm run build -w frontend && npm run build -w backend",
     "lint": "npm run lint -w frontend && npm run lint -w backend",
     "start": "npm run start -w backend",
-    "test": "npm run test -w backend"
+    "test": "npm run test -w backend",
+    "format": "prettier --write frontend/src backend/src scripts/*.ts",
+    "format:check": "prettier --check frontend/src backend/src scripts/*.ts"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "prettier": "3.6.2"
   },
   "engines": {
     "node": ">=22.12.0"

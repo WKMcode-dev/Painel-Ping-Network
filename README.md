@@ -2,6 +2,12 @@
 
 Painel web para acompanhar a disponibilidade de dispositivos de rede por ICMP. O backend executa as verificações, reconhece quedas e retornos e envia os dados ao frontend em tempo real por WebSocket.
 
+## Organização da v1.10.2
+
+Editor de mapa separado em geometria, hooks de interação e componentes de apresentação. Monitoramento dividido em classes de incidentes e tempo observado, com métricas independentes. Validação separada da persistência. Comentários de contratos e decisões acompanham os módulos; o [guia para desenvolvedores](docs/architecture.md) indica onde implementar cada tipo de mudança. `npm run format` e `npm run format:check` padronizam a formatação.
+
+A refatoração mantém os contratos de API e arquivos persistidos, sem migração adicional.
+
 ## Ajustes da v1.10.1
 
 Cards e apresentação do mapa ocultam endereços. Novos campos de nome, setor, local, descrição e textos do mapa não aceitam IPs; dados antigos continuam carregando sem perda. Endereços permanecem nos detalhes e no cadastro.
@@ -85,28 +91,21 @@ Tópicos permitem editar título, subtítulo e texto inferior; textos secundári
 
 ## Arquitetura
 
-```text
-Painel Ping/
-├── frontend/                 # React + TypeScript + Vite
-│   └── src/
-│       ├── app/              # composição da aplicação
-│       ├── components/       # componentes com estilos isolados
-│       ├── hooks/            # estado e conexão do monitoramento
-│       ├── services/         # API HTTP e WebSocket
-│       ├── types/            # contratos do frontend
-│       └── utils/            # formatação e utilidades
-├── backend/                  # Node.js + Express + TypeScript
-│   └── src/
-│       ├── config/           # ambiente e lista de hosts
-│       ├── controllers/      # controladores HTTP
-│       ├── repositories/     # persistência do histórico
-│       ├── routes/           # rotas da API
-│       ├── services/         # ping e regras de monitoramento
-│       ├── types/            # contratos do backend
-│       ├── utils/            # validação segura de endereços
-│       └── websocket/        # atualizações em tempo real
-└── .env.example              # configuração documentada
-```
+O guia [Arquitetura e manutenção](docs/architecture.md) descreve responsabilidades, fluxo de dados, pontos de extensão e regras para contribuição.
+
+| Local | Responsabilidade |
+| --- | --- |
+| `frontend/src/app` | Composição da aplicação |
+| `frontend/src/components` | Apresentação e estilos locais |
+| `frontend/src/features/topology` | Domínio, gestos e comandos do editor de mapa |
+| `frontend/src/hooks` | Estado compartilhado e comunicação em tempo real |
+| `frontend/src/services` | Adaptadores HTTP e autorização administrativa |
+| `backend/src/domain/monitoring` | Incidentes, tempo observado e métricas |
+| `backend/src/services` | Orquestração da coleta e sondagens ICMP/TCP/HTTP |
+| `backend/src/routes`, `controllers`, `validation` | Entrada HTTP, contratos e validação |
+| `backend/src/repositories`, `storage` | Persistência, migração e trava de processo |
+| `backend/src/security`, `websocket` | Proteções de acesso e publicação de estados |
+| `scripts` | Inicialização coordenada do ambiente |
 
 ## Executar em desenvolvimento
 
@@ -226,7 +225,7 @@ Paleta inspirada no Notion em claro/escuro. Em Configurações → Cores, escolh
 - Alertas visuais e som opcionais neste navegador, apenas para eventos novos dos hosts selecionados. Ative o áudio por clique, conforme a política do navegador. Silenciar dura 15 minutos; dispensar limpa os avisos. Eventos anteriores à abertura, administrativos e com mais de um minuto não disparam alertas. Não envia e-mail, WhatsApp ou notificações externas.
 - Manutenção com início/fim no horário local do operador, armazenados em UTC. Durante manutenção/pausa, não há sondagens nem novos incidentes. Incidentes já abertos são encerrados administrativamente, sem fingir um retorno. Após a janela, a coleta retoma no próximo ciclo e exige novas confirmações.
 
-A API de configuração (`GET/PUT /api/monitor/config`) usa JSON validado e gravação por arquivo temporário + renomeação. Alterações de cadastro aguardam sondagens em andamento. Não existe login/perfil de administrador nesta versão: instale em rede confiável com acesso controlado; quem alcança o backend pode administrar o cadastro. Para frontend em outra origem, configure `ALLOWED_ORIGINS`.
+A API de configuração (`GET/PUT /api/monitor/config`) usa JSON validado e gravação por arquivo temporário + renomeação. Alterações de cadastro aguardam sondagens em andamento. Desde a v1.10.1, alterações exigem a chave administrativa; consultas continuam acessíveis a quem alcança o backend. Use rede autorizada e HTTPS para acesso administrativo remoto. Não há perfis individuais de usuário. Para frontend em outra origem, configure `ALLOWED_ORIGINS`.
 
 Atualização a partir de v1.9.1: pare a versão anterior, preserve `.env` se personalizado, extraia a nova release, execute `npm install` e reinicie com `npm run dev` (ou `npm run build` e `npm start` em produção). A pasta fixa de dados é reutilizada automaticamente. Para migrar versões até v1.9.0, siga a seção de persistência acima. Preferências de aparência, TV e alertas são locais ao navegador e ao endereço de acesso.
 
@@ -285,3 +284,9 @@ Persistência: `topology.json` na pasta fixa de dados; API: `GET/PUT /api/topolo
 ### Releases
 
 As notas ficam em `docs/releases/vX.Y.Z.md`. Após os testes de Linux/Windows e Node 22/24 passarem em `main`, o workflow cria a tag da versão em `package.json`, publica uma GitHub Release e anexa o ZIP de fontes e seu SHA-256. Releases existentes não são substituídas. Cada nova entrega deve aumentar a versão e adicionar suas notas. A permissão de escrita fica restrita ao job de publicação; testes de pull requests possuem apenas leitura.
+
+## Manutenção e arquitetura
+
+A versão 1.10.2 separa o domínio do mapa, os comandos de edição e os cálculos de monitoramento dos componentes e serviços principais. Consulte o [guia de arquitetura](docs/architecture.md) e as [instruções para desenvolvedores](CONTRIBUTING.md) para entender responsabilidades, persistência, extensões e verificações antes de modificar o projeto.
+
+Use `npm run format` para formatar o código e `npm run format:check` para conferir o padrão. A organização preserva os contratos e dados das versões anteriores.

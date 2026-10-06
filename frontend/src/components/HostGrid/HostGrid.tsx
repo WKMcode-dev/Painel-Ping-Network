@@ -11,7 +11,19 @@ interface HostGridProps {
 
 export function HostGrid({ hosts, onSelect, readOnly = false }: HostGridProps) {
   if (!hosts.length) {
-    return <div className={styles.empty}><SearchX size={28} /><strong>Nenhum dispositivo encontrado</strong><span>Ajuste a busca ou o filtro de status.</span></div>
+    return (
+      <div className={styles.empty}>
+        <SearchX size={28} />
+        <strong>Nenhum dispositivo encontrado</strong>
+        <span>Ajuste a busca ou o filtro de status.</span>
+      </div>
+    )
   }
-  return <div className={styles.grid}>{hosts.map((host) => <HostCard key={host.id} host={host} onSelect={onSelect} readOnly={readOnly} />)}</div>
+  return (
+    <div className={styles.grid}>
+      {hosts.map((host) => (
+        <HostCard key={host.id} host={host} onSelect={onSelect} readOnly={readOnly} />
+      ))}
+    </div>
+  )
 }
