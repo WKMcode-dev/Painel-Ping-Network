@@ -12,6 +12,7 @@ interface Props {
   n: MapNode
   host?: HostSnapshot
   selected: boolean
+  invalid?: boolean
   connecting: ConnectionSource | null
   editable: boolean
   tool: 'select' | 'pan'
@@ -26,6 +27,7 @@ export function MapNodeView({
   n,
   host,
   selected,
+  invalid,
   connecting,
   editable,
   tool,
@@ -48,6 +50,7 @@ export function MapNodeView({
       data-color={n.color}
       data-shape={n.shape ?? 'rounded'}
       data-selected={selected}
+      data-invalid={Boolean(invalid)}
       data-source={connecting?.id === n.id}
       data-node-id={n.id}
       data-text-align={
@@ -69,6 +72,7 @@ export function MapNodeView({
       tabIndex={0}
       aria-label={`${privateLabel(host?.name ?? n.label, host?.address)}, ${status}`}
       aria-pressed={selected}
+      aria-invalid={Boolean(invalid)}
       onPointerDown={(e) => start(e, n.id)}
       onDoubleClick={(e) => {
         e.stopPropagation()

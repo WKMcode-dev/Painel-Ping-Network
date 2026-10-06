@@ -100,15 +100,26 @@ export const topologySchema = z
       ctx.addIssue({ code: 'custom', message: 'Conexão sem origem/destino válido' })
     }
   })
-export const editableTopologySchema = topologySchema.refine(
-  (g) =>
-    g.nodes.every((n) =>
-      [n.label, n.subtitle ?? '', n.caption ?? '', ...(n.texts?.map((t) => t.text) ?? [])].every(
-        safeDisplayText,
-      ),
-    ) && g.edges.every((e) => safeDisplayText(e.label)),
-  'Use IPs somente no cadastro do endereço, não nos textos do mapa',
-)
+/** Erros por campo permitem localizar cada elemento sem devolver seu texto sensível. */
+export const editableTopologySchema = topologySchema.superRefine((graph, ctx) => {
+  const check = (text: string, path: (string | number)[]) => {
+    if (!safeDisplayText(text))
+      ctx.addIssue({
+        code: 'custom',
+        path,
+        message: 'Use IPs somente no cadastro do endereço, não nos textos do mapa',
+      })
+  }
+  graph.nodes.forEach((node, index) => {
+    check(node.label, ['nodes', index, 'label'])
+    check(node.subtitle ?? '', ['nodes', index, 'subtitle'])
+    check(node.caption ?? '', ['nodes', index, 'caption'])
+    node.texts?.forEach((block, blockIndex) =>
+      check(block.text, ['nodes', index, 'texts', blockIndex, 'text']),
+    )
+  })
+  graph.edges.forEach((edge, index) => check(edge.label, ['edges', index, 'label']))
+})
 export const editableTopologyDocumentSchema = z.object({
   revision: z.number().int().nonnegative(),
   graph: editableTopologySchema,

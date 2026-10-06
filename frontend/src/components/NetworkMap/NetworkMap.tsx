@@ -1,3 +1,4 @@
+import { MapValidationProblems } from './MapValidationProblems'
 import { MapToolbar } from './MapToolbar'
 import { useMapNodeCommands } from '../../features/topology/hooks/useMapNodeCommands'
 import { useMapConnectionCommands } from '../../features/topology/hooks/useMapConnectionCommands'
@@ -18,6 +19,7 @@ import {
   freePortOffsets,
   branchSelection,
   initialGraph,
+  fitNodes,
   insertBend,
   snap,
   worldPoint,
@@ -50,6 +52,7 @@ export function NetworkMap({
 }: Props) {
   const editor = useTopology(hosts, ready)
   const [selected, setSelected] = useState<string[]>([])
+  const [locatedIds, setLocatedIds] = useState<string[]>([])
   const [edgeId, setEdgeId] = useState<string | null>(null)
   const [connecting, setConnecting] = useState<ConnectionSource | null>(null)
   const [tool, setTool] = useState<'select' | 'pan'>('select')
@@ -69,7 +72,10 @@ export function NetworkMap({
   const editable = !tv && !locked && !editor.busy
   const hostMap = useMemo(() => new Map(hosts.map((h) => [h.id, h])), [hosts])
   const visibleSet = new Set(visibleIds)
-  const nodes = graph?.nodes.filter((n) => !n.hostId || visibleSet.has(n.hostId)) ?? []
+  const nodes =
+    graph?.nodes.filter(
+      (n) => !n.hostId || visibleSet.has(n.hostId) || locatedIds.includes(n.id),
+    ) ?? []
   const nodeMap = new Map(nodes.map((n) => [n.id, n]))
   const routedEdges = useMemo(() => (graph ? resolvedEdges(graph) : []), [graph])
   const portChoices = useMemo(
@@ -143,6 +149,35 @@ export function NetworkMap({
     nodeMap,
     edge,
   })
+  const invalidNodes = new Set(
+    editor.issues.filter((i) => i.kind === 'node').map((i) => i.elementId ?? ''),
+  )
+  const invalidEdges = new Set(
+    editor.issues.filter((i) => i.kind === 'edge').map((i) => i.elementId ?? ''),
+  )
+  const locateProblem = (kind: 'node' | 'edge', id: string) => {
+    if (!graph) return
+    const connection = kind === 'edge' ? graph.edges.find((e) => e.id === id) : undefined
+    const ids = connection ? [connection.source, connection.target] : [id]
+    const targets = graph.nodes.filter((n) => ids.includes(n.id))
+    if (!targets.length) return
+    // Localizar também revela dispositivos excluídos pelo filtro, sem alterar o filtro global.
+    setLocatedIds(ids)
+    setSelected(kind === 'node' ? [id] : [])
+    setEdgeId(kind === 'edge' ? id : null)
+    setAppearanceOpen(false)
+    setConnecting(null)
+    setTool('select')
+    setLocked(false)
+    setView(
+      fitNodes(
+        targets,
+        Math.max(250, (canvas.current?.clientWidth ?? 800) - 340),
+        canvas.current?.clientHeight ?? 600,
+      ),
+    )
+    canvas.current?.focus({ preventScroll: true })
+  }
   return (
     <section
       id="infrastructure-map"
@@ -251,6 +286,9 @@ export function NetworkMap({
           {editor.error} As alterações locais foram mantidas.
         </p>
       )}
+      {!tv && graph && editor.issues.length > 0 && (
+        <MapValidationProblems graph={graph} issues={editor.issues} onLocate={locateProblem} />
+      )}
       {!tv && hint && (
         <p className={styles.message} role="status">
           {hint} <button onClick={() => setHint('')}>Fechar</button>
@@ -317,6 +355,7 @@ export function NetworkMap({
             <MapEdges
               graph={graph}
               edges={edges}
+              invalidIds={tv ? undefined : invalidEdges}
               nodeMap={nodeMap}
               connecting={Boolean(connecting)}
               edgeId={edgeId}
@@ -369,6 +408,7 @@ export function NetworkMap({
               n={n}
               host={n.hostId ? hostMap.get(n.hostId) : undefined}
               selected={selected.includes(n.id)}
+              invalid={!tv && invalidNodes.has(n.id)}
               connecting={connecting}
               editable={editable}
               tool={tool}

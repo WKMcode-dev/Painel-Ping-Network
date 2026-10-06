@@ -2,6 +2,10 @@
 
 Painel web para acompanhar a disponibilidade de dispositivos de rede por ICMP. O backend executa as verificações, reconhece quedas e retornos e envia os dados ao frontend em tempo real por WebSocket.
 
+## Diagnóstico do mapa — v1.10.4
+
+Ao rejeitar um salvamento, o painel destaca em vermelho os balões e ligações inválidos, lista os campos problemáticos e oferece **Localizar**. O destaque é temporário na interface, sem mudar as cores salvas ou o status de ping. Corrija os campos indicados e salve novamente. Títulos vinculados a dispositivos vêm do cadastro: use **Gerenciar dispositivos** para corrigir esses nomes. As alterações locais são mantidas.
+
 ## Organização da v1.10.2
 
 Editor de mapa separado em geometria, hooks de interação e componentes de apresentação. Monitoramento dividido em classes de incidentes e tempo observado, com métricas independentes. Validação separada da persistência. Comentários de contratos e decisões acompanham os módulos; o [guia para desenvolvedores](docs/architecture.md) indica onde implementar cada tipo de mudança. `npm run format` e `npm run format:check` padronizam a formatação.

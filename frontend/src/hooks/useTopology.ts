@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Graph, TopologyDocument } from '../types/topology'
+import type { Graph, TopologyDocument, MapValidationIssue } from '../types/topology'
 import { initialGraph, reconcileGraph } from '../utils/topology'
-import { topologyRequest } from '../services/topology-api'
+import { topologyRequest, TopologyValidationError } from '../services/topology-api'
 interface History {
   past: Graph[]
   present: Graph
@@ -12,6 +12,7 @@ export function useTopology(hosts: { id: string; name: string; group: string }[]
   const [remote, setRemote] = useState<TopologyDocument | null>(null)
   const [saved, setSaved] = useState('')
   const [error, setError] = useState('')
+  const [issues, setIssues] = useState<MapValidationIssue[]>([])
   const [busy, setBusy] = useState(false)
   const generation = useRef(0)
   const inventory = JSON.stringify(
@@ -23,6 +24,7 @@ export function useTopology(hosts: { id: string; name: string; group: string }[]
     const token = ++generation.current
     setBusy(true)
     setError('')
+    setIssues([])
     try {
       const result = await topologyRequest()
       if (generation.current !== token) return
@@ -84,6 +86,7 @@ export function useTopology(hosts: { id: string; name: string; group: string }[]
     if (!history || !remote || busy) return
     setBusy(true)
     setError('')
+    setIssues([])
     const graph = history.present
     try {
       const result = await topologyRequest({ revision: remote.revision, graph })
@@ -92,6 +95,7 @@ export function useTopology(hosts: { id: string; name: string; group: string }[]
       setSaved(JSON.stringify(graph))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Falha ao salvar')
+      setIssues(e instanceof TopologyValidationError ? e.issues : [])
     } finally {
       setBusy(false)
     }
@@ -116,6 +120,7 @@ export function useTopology(hosts: { id: string; name: string; group: string }[]
     dirty,
     busy,
     error,
+    issues,
     save,
     load,
   }

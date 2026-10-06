@@ -27,9 +27,24 @@ export function createTopologyRouter(repository = new TopologyRepository()): Rou
     }
     const parsed = editableTopologyDocumentSchema.safeParse(req.body)
     if (!parsed.success) {
-      res
-        .status(400)
-        .json({ message: 'Mapa inválido: ' + parsed.error.issues.map((i) => i.message).join('; ') })
+      res.status(400).json({
+        message:
+          'Mapa inválido: ' + [...new Set(parsed.error.issues.map((i) => i.message))].join('; '),
+        issues: parsed.error.issues.map((issue) => {
+          const [, collection, index, ...field] = issue.path
+          const kind = collection === 'nodes' ? 'node' : collection === 'edges' ? 'edge' : undefined
+          const element =
+            kind && typeof index === 'number'
+              ? req.body.graph?.[collection as string]?.[index]
+              : undefined
+          return {
+            kind,
+            elementId: typeof element?.id === 'string' ? element.id : undefined,
+            field: field.join('.'),
+            message: issue.message,
+          }
+        }),
+      })
       return
     }
     try {

@@ -68,3 +68,11 @@ export interface Viewport {
   y: number
   zoom: number
 }
+
+/** Diagnóstico da API: identifica o campo, sem incluir o conteúdo rejeitado. */
+export interface MapValidationIssue {
+  kind?: 'node' | 'edge'
+  elementId?: string
+  field: string
+  message: string
+}

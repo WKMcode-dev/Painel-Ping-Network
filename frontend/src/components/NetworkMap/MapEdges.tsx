@@ -7,6 +7,7 @@ import styles from './NetworkMap.module.css'
 interface Props {
   graph: Graph
   edges: MapEdge[]
+  invalidIds?: Set<string>
   nodeMap: Map<string, MapNode>
   connecting: boolean
   edgeId: string | null
@@ -26,6 +27,7 @@ interface Props {
 export function MapEdges({
   graph,
   edges,
+  invalidIds,
   nodeMap,
   connecting,
   edgeId,
@@ -51,7 +53,7 @@ export function MapEdges({
         const port = junctionPoint(nodeMap.get(e.source)!, nodeMap.get(e.target)!, e)
         const curve = edgeRoute(nodeMap.get(e.source)!, nodeMap.get(e.target)!, e)
         return (
-          <g key={e.id} data-selected={e.id === edgeId}>
+          <g key={e.id} data-selected={e.id === edgeId} data-invalid={invalidIds?.has(e.id)}>
             <path
               className={styles.edgeLine}
               d={curve.path}
@@ -65,6 +67,7 @@ export function MapEdges({
             <path
               className={styles.edgeHit}
               d={curve.path}
+              aria-invalid={invalidIds?.has(e.id)}
               role="button"
               tabIndex={0}
               aria-label={privateLabel(
