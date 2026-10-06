@@ -31,7 +31,7 @@ A aplicação mantém um backend por pasta de dados. Não é um sistema de ediç
 
 `MonitorService` orquestra o ciclo e recebe sondagem, repositório de histórico e relógio pelo construtor. Isso permite testar falhas e passagem do tempo sem depender da rede real.
 
-`IncidentTracker` encapsula incidentes abertos, primeira falha e confirmação. `ObservationAccounting` encapsula a contabilização de tempo online, offline, desconhecido, pausado e em manutenção. Ambas são instâncias por serviço: não compartilhe essas classes globalmente entre coletores. `updateSampleMetrics` é uma função sobre a janela de amostras válidas, pois não precisa manter estado próprio.
+`IncidentTracker` encapsula incidentes abertos, primeira falha e confirmação. `ObservationAccounting` encapsula a contabilização de tempo online, offline, desconhecido, pausado e em manutenção. `HostResultProcessor` aplica respostas, rejeita horários inválidos e controla confirmações de estado. Essas classes são instâncias por serviço: não compartilhe essas classes globalmente entre coletores. `updateSampleMetrics` é uma função sobre a janela de amostras válidas, pois não precisa manter estado próprio.
 
 Os repositórios encapsulam persistência. Schemas ficam em `validation`, mesmo quando reexportados por repositórios para compatibilidade. Em React, componentes funcionais e hooks compõem a interface; classes são usadas quando há estado e ciclo de vida de domínio a encapsular. Evite hierarquias de herança sem uma necessidade concreta.
 

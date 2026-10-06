@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import type { HistoryRepository } from '../../repositories/history.repository.js'
-import type { HostSnapshot, PingResult } from '../../types/monitor.js'
+import type { HostSnapshot, PingResult, StatusEvent } from '../../types/monitor.js'
+
+/** Contrato mínimo de eventos; o domínio não conhece o formato de armazenamento. */
+interface IncidentEventSink {
+  add: (event: StatusEvent) => void
+}
 
 /** Mantém sequências de falha e incidentes confirmados durante uma sessão de coleta.
  * Interrupções do coletor fecham continuidade com duração desconhecida. */
@@ -9,7 +13,7 @@ export class IncidentTracker {
   private readonly firstFailures = new Map<string, string>()
   private readonly failureBounds = new Map<string, string | null>()
   constructor(
-    private readonly historyRepository: Pick<HistoryRepository, 'add'>,
+    private readonly historyRepository: IncidentEventSink,
     private readonly now: () => number,
   ) {}
   resetFailures(id: string) {

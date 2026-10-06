@@ -1,0 +1,7 @@
+# Mantém o mesmo formato de texto em Windows e Linux.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.zip binary
