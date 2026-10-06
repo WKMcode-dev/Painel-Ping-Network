@@ -1,3 +1,4 @@
+import type { SnmpConfig, NetworkAttachment, SnmpResult, IncidentReport } from './snmp.js'
 export interface ServiceCheck {
   id: string
   type: 'tcp' | 'http'
@@ -30,6 +31,8 @@ export interface HostDefinition {
   suspended?: string
   description?: string
   checks?: ServiceCheck[]
+  snmp?: SnmpConfig
+  attachment?: NetworkAttachment
 }
 
 export interface PingResult {
@@ -94,6 +97,7 @@ export interface HostSnapshot extends HostDefinition {
   firstFailureAt?: string | null
   downConfirmedAt?: string | null
   serviceChecks?: ServiceResult[]
+  snmpResult?: SnmpResult
   history: HistoryPoint[]
 }
 
@@ -111,5 +115,6 @@ export interface DashboardSnapshot {
     activeIncidents: number
   }
   hosts: HostSnapshot[]
+  incidentReports?: IncidentReport[]
   recentEvents: StatusEvent[]
 }

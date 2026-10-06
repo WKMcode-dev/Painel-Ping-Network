@@ -56,7 +56,7 @@ export async function configurationRequest(config?: MonitorConfig): Promise<Moni
 async function deviceRequest(
   path: string,
   method: 'POST' | 'PATCH' | 'DELETE',
-  body?: Partial<DeviceConfig>,
+  body?: DeviceChanges,
 ): Promise<DeviceConfig | null> {
   const response = await adminRequest(`${configuredBase}/api/monitor/hosts${path}`, {
     method,
@@ -72,6 +72,10 @@ async function deviceRequest(
 }
 export const createDevice = (input: Omit<DeviceConfig, 'id'>) =>
   deviceRequest('', 'POST', input) as Promise<DeviceConfig>
-export const editDevice = (id: string, input: Partial<DeviceConfig>) =>
+type DeviceChanges = Omit<Partial<DeviceConfig>, 'snmp' | 'attachment'> & {
+  snmp?: DeviceConfig['snmp'] | null
+  attachment?: DeviceConfig['attachment'] | null
+}
+export const editDevice = (id: string, input: DeviceChanges) =>
   deviceRequest(`/${encodeURIComponent(id)}`, 'PATCH', input) as Promise<DeviceConfig>
 export const removeDevice = (id: string) => deviceRequest(`/${encodeURIComponent(id)}`, 'DELETE')

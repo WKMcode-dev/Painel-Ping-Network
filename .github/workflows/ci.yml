@@ -16,14 +16,73 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - run: npm run format:check
       - run: npm run lint
       - run: npm test
       - run: npm run build
 
+  desktop:
+    needs: check
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run desktop:stage
+      - name: Smoke test Linux desktop
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run desktop:smoke
+        env:
+          DATA_DIR: ${{ runner.temp }}/painel-ping-smoke
+      - name: Smoke test Windows desktop
+        if: runner.os == 'Windows'
+        run: npm run desktop:smoke
+        env:
+          DATA_DIR: ${{ runner.temp }}\painel-ping-smoke
+      - name: Package Linux
+        if: runner.os == 'Linux'
+        run: npx electron-builder --projectDir desktop/staging --config ../builder.json --linux --x64
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        run: npx electron-builder --projectDir desktop/staging --config ../builder.json --win --x64
+      - name: Smoke test packaged Linux desktop
+        if: runner.os == 'Linux'
+        run: xvfb-run -a ./desktop-release/linux-unpacked/painel-ping-desktop --smoke-test
+        env:
+          DATA_DIR: ${{ runner.temp }}/painel-ping-smoke
+      - name: Smoke test packaged Windows desktop
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $desktopProcess = Start-Process -FilePath './desktop-release/win-unpacked/Painel Ping.exe' -ArgumentList '--smoke-test' -Wait -PassThru
+          if ($desktopProcess.ExitCode -ne 0) { throw "Desktop exited with $($desktopProcess.ExitCode)" }
+        env:
+          DATA_DIR: ${{ runner.temp }}\painel-ping-smoke
+      - name: Verify graceful shutdown
+        shell: bash
+        run: node -e "const fs=require('node:fs'),path=require('node:path'); const p=process.env.DATA_DIR; if (!fs.existsSync(path.join(p,'config.json')) || fs.existsSync(path.join(path.dirname(p),'.'+path.basename(p)+'.lock'))) process.exit(1)"
+        env:
+          DATA_DIR: ${{ runner.temp }}/painel-ping-smoke
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ runner.os }}
+          if-no-files-found: error
+          path: |
+            desktop-release/*.exe
+            desktop-release/*.AppImage
+            desktop-release/*.deb
+
   release:
     name: Publish versioned release
-    needs: check
+    needs: [check, desktop]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -33,6 +92,11 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: desktop-assets
+          merge-multiple: true
       - name: Package and publish the application version
         env:
           GH_TOKEN: ${{ github.token }}
@@ -54,7 +118,9 @@ jobs:
           fi
           release_archive="Painel-Ping-$release_tag.zip"
           git archive --format=zip --prefix="Painel-Ping-$release_tag/" -o "$release_archive" "$GITHUB_SHA"
-          sha256sum "$release_archive" > SHA256SUMS.txt
-          gh release create "$release_tag" "$release_archive" SHA256SUMS.txt \
+          mapfile -t desktop_files < <(find desktop-assets -maxdepth 1 -type f | sort)
+          [[ "${#desktop_files[@]}" -eq 3 ]]
+          sha256sum "$release_archive" "${desktop_files[@]}" > SHA256SUMS.txt
+          gh release create "$release_tag" "$release_archive" "${desktop_files[@]}" SHA256SUMS.txt \
             --target "$GITHUB_SHA" --title "Painel Ping $release_tag" \
             --notes-file "$release_notes" --latest

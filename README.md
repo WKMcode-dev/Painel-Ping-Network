@@ -1,6 +1,14 @@
 # 📡 Painel Ping
 
-Painel web para acompanhar a disponibilidade de dispositivos de rede por ICMP. O backend executa as verificações, reconhece quedas e retornos e envia os dados ao frontend em tempo real por WebSocket.
+Painel web e desktop para acompanhar dispositivos por ICMP, serviços TCP/HTTP e interfaces SNMP. O coletor registra incidentes e envia as atualizações por WebSocket.
+
+## v1.11.0 — SNMP e desktop
+
+**Incidentes** apresenta dispositivo, ocorrência, evidências, causa quando identificada e horários. A aplicação não lista hipóteses: quando os dados não determinam a causa, mostra **Causa não identificada**. O vínculo entre dispositivo e interface de acesso é explícito no cadastro, independente do desenho do mapa.
+
+Instaladores para Windows x64 e Linux x64 encapsulam frontend, backend e runtime. O menu **Painel Ping → Chave administrativa local** permite consultar a chave no desktop. Fechar a janela mantém a coleta na bandeja; **Encerrar** finaliza o coletor local. A pasta fixa de dados continua a mesma.
+
+SNMP requer equipamento compatível, perfil privado no coletor e índices das interfaces no cadastro. Consulte [configuração técnica](docs/snmp-desktop.md) e [notas da versão](docs/releases/v1.11.0.md). Para acompanhar a rede enquanto o computador do operador está desligado, o coletor precisa executar em outro servidor; o desktop pode conectar-se a ele com `--server=https://origem-do-coletor`.
 
 ## Diagnóstico do mapa — v1.10.4
 

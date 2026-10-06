@@ -1,0 +1,60 @@
+.incidents {
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+.controls input,
+.controls select,
+.controls button {
+  padding: 8px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--text);
+  border-radius: 6px;
+}
+.scroll {
+  overflow: auto;
+  overscroll-behavior: contain;
+  max-height: 65vh;
+}
+.scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+.scroll th,
+.scroll td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  min-width: 140px;
+}
+.scroll th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+}
+.scroll small {
+  display: block;
+  color: var(--text-muted);
+  margin-top: 5px;
+}
+.scroll button {
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.scroll details {
+  margin-top: 6px;
+}

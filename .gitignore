@@ -34,3 +34,8 @@ backend/storage/*.json
 
 # Persistent administrative credentials
 admin-access.json
+
+# Artefatos desktop e histórico de diagnóstico
+desktop/staging/
+desktop-release/
+backend/storage/incident-reports.json

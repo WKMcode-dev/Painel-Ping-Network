@@ -1,3 +1,5 @@
+import { probeSnmp } from './snmp.service.js'
+import type { IncidentDiagnostics } from '../domain/diagnostics/incident-diagnostics.js'
 import { IncidentTracker } from '../domain/monitoring/incident-tracker.js'
 import { ObservationAccounting } from '../domain/monitoring/observation-accounting.js'
 import { HostResultProcessor } from '../domain/monitoring/host-result-processor.js'
@@ -48,6 +50,10 @@ export class MonitorService {
       }),
     })
   }
+  private diagnostics?: IncidentDiagnostics
+  attachDiagnostics(diagnostics: IncidentDiagnostics) {
+    this.diagnostics = diagnostics
+  }
   private configRepository?: ConfigRepository
   private configuration: MonitorConfig | null = null
   private mutations: Promise<unknown> = Promise.resolve()
@@ -58,12 +64,13 @@ export class MonitorService {
   private readonly generations = new Map<string, number>()
   private readonly gapHosts = new Set<string>()
   private lastCycleAt: number | null = null
+  private stopping = false
   private staleLimit() {
     const slots = Math.ceil(this.hosts.size / env.MAX_CONCURRENT_PINGS)
     return Math.max(
       30000,
       env.PING_INTERVAL_MS * 3,
-      slots * (env.PING_TIMEOUT_MS * 3 + 750) * 2 + env.PING_INTERVAL_MS,
+      slots * (env.PING_TIMEOUT_MS * 3 + 6750) * 2 + env.PING_INTERVAL_MS,
     )
   }
   private markGap(host: HostSnapshot, message: string, now: number) {
@@ -117,7 +124,9 @@ export class MonitorService {
         if (
           !next ||
           next.address !== host.address ||
-          JSON.stringify(next.checks) !== JSON.stringify(host.checks)
+          JSON.stringify(next.checks) !== JSON.stringify(host.checks) ||
+          JSON.stringify(next.snmp) !== JSON.stringify(host.snmp) ||
+          JSON.stringify(next.attachment) !== JSON.stringify(host.attachment)
         ) {
           this.incidents.interrupt(host, 'Cadastro removido ou endereço alterado')
           this.hosts.delete(id)
@@ -135,6 +144,8 @@ export class MonitorService {
           host,
           {
             checks: undefined,
+            snmp: undefined,
+            attachment: undefined,
             description: undefined,
             enabled: true,
             maintenanceStart: null,
@@ -244,7 +255,9 @@ export class MonitorService {
   async stop(): Promise<void> {
     if (this.timer) clearInterval(this.timer)
     this.timer = null
+    this.stopping = true
     await this.cycle
+    this.stopping = false
     await this.mutations
     await this.historyRepository.flush()
   }
@@ -278,6 +291,10 @@ export class MonitorService {
         availabilityPct: totals.observedMs
           ? (totals.onlineObservedMs / totals.observedMs) * 100
           : 0,
+        snmpResult:
+          stale || suspended
+            ? host.snmpResult && { ...host.snmpResult, status: 'unknown' as const, interfaces: [] }
+            : host.snmpResult,
         serviceChecks: host.serviceChecks?.map((check) =>
           stale || suspended ? { ...check, status: 'unknown' as const } : check,
         ),
@@ -291,7 +308,14 @@ export class MonitorService {
     const observedMs = hosts.reduce((sum, host) => sum + (host.observedMs ?? 0), 0)
     const latencies = onlineHosts.flatMap((host) => host.latencyMs ?? [])
 
+    this.diagnostics?.update(
+      hosts,
+      now,
+      this.staleLimit(),
+      this.configuration?.failureThreshold ?? 2,
+    )
     return {
+      incidentReports: this.diagnostics?.getAll().slice(0, 300),
       intervalMs: env.PING_INTERVAL_MS,
       staleAfterMs: this.staleLimit(),
       generatedAt: new Date(this.now()).toISOString(),
@@ -306,13 +330,18 @@ export class MonitorService {
         averageLatencyMs: latencies.length
           ? latencies.reduce((sum, latency) => sum + latency, 0) / latencies.length
           : null,
-        activeIncidents: hosts.filter((host) => host.status === 'offline').length,
+        activeIncidents: this.diagnostics
+          ? this.diagnostics.getAll().filter((report) => report.state === 'active').length
+          : hosts.filter((host) => host.status === 'offline').length,
       },
       hosts,
       recentEvents: this.historyRepository.getAll().slice(0, 30),
     }
   }
 
+  getIncidentReports() {
+    return this.diagnostics?.getAll() ?? []
+  }
   getHostEvents(hostId: string): StatusEvent[] {
     return this.historyRepository.getByHost(hostId)
   }
@@ -338,6 +367,8 @@ export class MonitorService {
     await Promise.all(
       Array.from({ length: Math.min(queue.length, env.MAX_CONCURRENT_PINGS) }, async () => {
         for (let host = queue.shift(); host; host = queue.shift()) {
+          // Encerrar não inicia novas sondagens: aguarda somente as que já estão em curso.
+          if (this.stopping) break
           const generation = this.generations.get(host.id) ?? 0
           const suspended = this.suspension(host)
           if (suspended) {
@@ -382,12 +413,28 @@ export class MonitorService {
               }),
             ]).finally(() => clearTimeout(timeout))
             if (
+              this.stopping ||
               generation !== (this.generations.get(host.id) ?? 0) ||
               this.hosts.get(host.id) !== host ||
               this.now() - started > this.staleLimit()
             )
               continue
             if (!this.results.apply(host, result)) continue
+            const snmpResult = host.snmp
+              ? await probeSnmp(result.resolvedAddress ?? host.address, host.snmp).catch(() => ({
+                  status: 'unknown' as const,
+                  checkedAt: new Date(this.now()).toISOString(),
+                  interfaces: [],
+                  error: 'Verificação SNMP indisponível',
+                }))
+              : undefined
+            if (
+              this.stopping ||
+              generation !== (this.generations.get(host.id) ?? 0) ||
+              this.suspension(host)
+            )
+              continue
+            host.snmpResult = snmpResult
             const checks = await Promise.all(
               (host.checks ?? []).map((check) =>
                 (!result.resolvedAddress && result.probeError) ||

@@ -1,7 +1,7 @@
-import { LayoutGrid, Network, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { ListChecks, LayoutGrid, Network, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import styles from './Sidebar.module.css'
 
-export type DashboardView = 'cards' | 'map'
+export type DashboardView = 'cards' | 'map' | 'incidents'
 
 export function Sidebar({
   view,
@@ -52,6 +52,18 @@ export function Sidebar({
         >
           <Network size={19} />
           <span>Mapa</span>
+        </button>
+        <button
+          type="button"
+          className={styles.item}
+          data-active={view === 'incidents'}
+          aria-current={view === 'incidents' ? 'page' : undefined}
+          aria-label="Incidentes"
+          title="Incidentes"
+          onClick={() => onView('incidents')}
+        >
+          <ListChecks size={19} />
+          <span>Incidentes</span>
         </button>
       </nav>
     </aside>

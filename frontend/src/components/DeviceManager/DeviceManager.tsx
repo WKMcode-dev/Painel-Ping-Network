@@ -89,7 +89,13 @@ export function DeviceManager({
     setMessage('')
     try {
       const { id, ...data } = editing
-      const result = id ? await editDevice(id, data) : await createDevice(data)
+      const result = id
+        ? await editDevice(id, {
+            ...data,
+            snmp: data.snmp ?? null,
+            attachment: data.attachment ?? null,
+          })
+        : await createDevice(data)
       setDevices((list) =>
         id ? list.map((item) => (item.id === id ? result : item)) : [...list, result],
       )
@@ -114,7 +120,13 @@ export function DeviceManager({
     setMessage('')
     try {
       await removeDevice(device.id)
-      setDevices((list) => list.filter((item) => item.id !== device.id))
+      setDevices((list) =>
+        list
+          .filter((item) => item.id !== device.id)
+          .map((item) =>
+            item.attachment?.hostId === device.id ? { ...item, attachment: undefined } : item,
+          ),
+      )
       setEditing((current) => (current?.id === device.id ? null : current))
       onPreferences({ ...preferences, hidden: preferences.hidden.filter((id) => id !== device.id) })
       setMessage('Dispositivo removido.')
@@ -223,6 +235,7 @@ export function DeviceManager({
           </div>
           {editing && (
             <DeviceForm
+              devices={devices}
               editing={editing}
               busy={busy}
               preferences={preferences}

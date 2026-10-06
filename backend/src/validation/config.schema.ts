@@ -45,6 +45,26 @@ export const storedHostSchema = z
         'IDs de verificações duplicados',
       )
       .optional(),
+    snmp: z
+      .object({
+        profile: z.string().regex(/^[A-Z][A-Z0-9_]{0,39}$/, 'Use um identificador de perfil SNMP'),
+        port: z.number().int().min(1).max(65535).default(161),
+        interfaces: z
+          .array(z.number().int().min(1).max(2147483647))
+          .max(32)
+          .refine((v) => new Set(v).size === v.length, 'Interfaces SNMP duplicadas'),
+      })
+      .optional(),
+    attachment: z
+      .object({
+        hostId: z
+          .string()
+          .min(1)
+          .max(80)
+          .regex(/^[a-zA-Z0-9_-]+$/),
+        interfaceIndex: z.number().int().min(1).max(2147483647),
+      })
+      .optional(),
     description: z.string().max(500).optional(),
     enabled: z.boolean().default(true),
     maintenanceStart: z.string().datetime().nullable().optional(),
@@ -93,3 +113,22 @@ export const storedConfigSchema = configSchema.extend({
     .refine((h) => new Set(h.map((x) => x.id)).size === h.length, 'IDs duplicados'),
 })
 export type MonitorConfig = z.infer<typeof configSchema>
+
+// Dependências são explícitas: desenhos do mapa não são usados como conexões físicas.
+const attachmentsValid = (config: { hosts: z.infer<typeof storedHostSchema>[] }) =>
+  config.hosts.every((host) => {
+    if (!host.attachment) return true
+    const parent = config.hosts.find((item) => item.id === host.attachment!.hostId)
+    return (
+      parent?.id !== host.id &&
+      Boolean(parent?.snmp?.interfaces.includes(host.attachment.interfaceIndex))
+    )
+  })
+export const validatedConfigSchema = configSchema.refine(
+  attachmentsValid,
+  'A porta de acesso precisa pertencer a um equipamento SNMP cadastrado',
+)
+export const validatedStoredConfigSchema = storedConfigSchema.refine(
+  attachmentsValid,
+  'Dependência SNMP inválida',
+)

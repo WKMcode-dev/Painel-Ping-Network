@@ -6,6 +6,7 @@ config({ path: [resolve(process.cwd(), '.env'), resolve(process.cwd(), '../.env'
 
 const schema = z.object({
   MAX_CONCURRENT_PINGS: z.coerce.number().int().min(1).max(64).default(8),
+  BIND_ADDRESS: z.string().default('0.0.0.0'),
   PORT: z.coerce.number().int().positive().default(3333),
   PING_INTERVAL_MS: z.coerce.number().int().min(1000).default(5000),
   PING_TIMEOUT_MS: z.coerce.number().int().min(250).default(1500),

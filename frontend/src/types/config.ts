@@ -4,6 +4,8 @@ export interface DeviceConfig {
   address: string
   group: string
   location: string
+  snmp?: import('./snmp').SnmpConfig
+  attachment?: import('./snmp').NetworkAttachment
   description?: string
   checks?: import('./monitor').ServiceCheck[]
   enabled: boolean

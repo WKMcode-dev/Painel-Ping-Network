@@ -29,6 +29,8 @@ A aplicação mantém um backend por pasta de dados. Não é um sistema de ediç
 
 ## Orientação a objetos e dependências
 
+Na v1.11.0, `services/snmp.service.ts` isola sondagens UDP e perfis privados; `domain/diagnostics/incident-diagnostics.ts` isola correlação e confirmação por evidências; `repositories/incident.repository.ts` grava os incidentes. `components/Incidents` apresenta esses contratos. `desktop/main.cjs` gerencia janela, bandeja e processo auxiliar; `desktop/stage.mjs` prepara somente código e dependências de execução para o empacotador. Consulte `docs/snmp-desktop.md` para configuração e limites desta coleta.
+
 `MonitorService` orquestra o ciclo e recebe sondagem, repositório de histórico e relógio pelo construtor. Isso permite testar falhas e passagem do tempo sem depender da rede real.
 
 `IncidentTracker` encapsula incidentes abertos, primeira falha e confirmação. `ObservationAccounting` encapsula a contabilização de tempo online, offline, desconhecido, pausado e em manutenção. `HostResultProcessor` aplica respostas, rejeita horários inválidos e controla confirmações de estado. Essas classes são instâncias por serviço: não compartilhe essas classes globalmente entre coletores. `updateSampleMetrics` é uma função sobre a janela de amostras válidas, pois não precisa manter estado próprio.

@@ -1,3 +1,4 @@
+import { Incidents } from '../components/Incidents/Incidents'
 import { privateLabel } from '../utils/privacy'
 import { Activity, Gauge, Server, ShieldAlert } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -174,10 +175,14 @@ export default function App() {
               />
               <SummaryCard
                 label="Incidentes ativos"
-                value={offline}
-                detail={offline ? 'Requer atenção' : 'Nenhum incidente confirmado'}
+                value={snapshot.summary.activeIncidents}
+                detail={
+                  snapshot.summary.activeIncidents
+                    ? 'Requer atenção'
+                    : 'Nenhum incidente confirmado'
+                }
                 icon={ShieldAlert}
-                tone={offline ? 'danger' : 'success'}
+                tone={snapshot.summary.activeIncidents ? 'danger' : 'success'}
               />
               <SummaryCard
                 label="Latência média"
@@ -269,6 +274,14 @@ export default function App() {
                 readOnly={tv}
               />
             </section>
+          )}
+          {view === 'incidents' && (
+            <Incidents
+              hosts={currentHosts}
+              generatedAt={snapshot.generatedAt}
+              live={connection === 'live'}
+              onDetails={setSelectedId}
+            />
           )}
           {mapVisited && (
             <div hidden={view !== 'map'}>

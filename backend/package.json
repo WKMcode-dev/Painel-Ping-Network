@@ -1,6 +1,6 @@
 {
   "name": "@painel-ping/backend",
-  "version": "1.10.5",
+  "version": "1.11.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,12 +15,14 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
+    "net-snmp": "^3.29.1",
     "ws": "^8.18.3",
     "zod": "^4.1.11"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/net-snmp": "^3.23.0",
     "@types/node": "^24.5.2",
     "@types/ws": "^8.18.1",
     "tsx": "^4.20.5",

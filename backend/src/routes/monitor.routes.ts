@@ -1,5 +1,5 @@
 import { allowedOrigin } from '../security/origin.js'
-import { configSchema } from '../validation/config.schema.js'
+import { validatedConfigSchema as configSchema } from '../validation/config.schema.js'
 import { createHostsRouter } from './hosts.routes.js'
 import { Router } from 'express'
 import { MonitorController } from '../controllers/monitor.controller.js'
@@ -36,6 +36,7 @@ export function createMonitorRouter(monitorService: MonitorService): Router {
     }
   })
   router.use(createHostsRouter(monitorService))
+  router.get('/incidents', (_req, res) => res.json(monitorService.getIncidentReports()))
   router.get('/status', controller.status)
   router.get('/hosts/:hostId/events', controller.events)
   router.post('/refresh', controller.refresh)

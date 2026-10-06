@@ -1,6 +1,6 @@
 {
   "name": "painel-ping",
-  "version": "1.10.5",
+  "version": "1.11.0",
   "private": true,
   "workspaces": [
     "frontend",
@@ -13,13 +13,23 @@
     "start": "npm run start -w backend",
     "test": "npm run test -w backend",
     "format": "prettier --write frontend/src backend/src scripts/*.ts",
-    "format:check": "prettier --check frontend/src backend/src scripts/*.ts"
+    "format:check": "prettier --check frontend/src backend/src scripts/*.ts",
+    "desktop:stage": "npm run build && node desktop/stage.mjs",
+    "desktop:dev": "npm run desktop:stage && electron desktop/staging",
+    "desktop:package": "npm run desktop:stage && electron-builder --projectDir desktop/staging --config ../builder.json",
+    "desktop:smoke": "electron desktop/staging --smoke-test"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
     "prettier": "3.6.2"
   },
   "engines": {
     "node": ">=22.12.0"
+  },
+  "overrides": {
+    "shell-quote": "1.12.0",
+    "global-agent": "4.1.3"
   }
 }

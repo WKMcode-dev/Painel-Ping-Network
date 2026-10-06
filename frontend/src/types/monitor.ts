@@ -1,3 +1,4 @@
+import type { SnmpConfig, NetworkAttachment, SnmpResult, IncidentReport } from './snmp'
 export interface ServiceCheck {
   id: string
   type: 'tcp' | 'http'
@@ -48,6 +49,8 @@ export interface HostSnapshot {
   suspended?: string
   description?: string
   checks?: ServiceCheck[]
+  snmp?: SnmpConfig
+  attachment?: NetworkAttachment
   status: HostStatus
   latencyMs: number | null
   averageLatencyMs: number | null
@@ -81,6 +84,7 @@ export interface HostSnapshot {
   firstFailureAt?: string | null
   downConfirmedAt?: string | null
   serviceChecks?: ServiceResult[]
+  snmpResult?: SnmpResult
   history: HistoryPoint[]
 }
 
@@ -98,6 +102,7 @@ export interface DashboardSnapshot {
     activeIncidents: number
   }
   hosts: HostSnapshot[]
+  incidentReports?: IncidentReport[]
   recentEvents: StatusEvent[]
 }
 

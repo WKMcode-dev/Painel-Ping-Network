@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { Router, type Request } from 'express'
 import { allowedOrigin } from '../security/origin.js'
-import { storedConfigSchema, hostSchema } from '../validation/config.schema.js'
+import {
+  validatedStoredConfigSchema as storedConfigSchema,
+  hostSchema,
+} from '../validation/config.schema.js'
 import type { MonitorService } from '../services/monitor.service.js'
 
 /** CRUD altera configuração por operações serializadas do serviço, nunca o inventário diretamente. */
@@ -66,7 +69,11 @@ export function createHostsRouter(monitorService: MonitorService): Router {
           ...current,
           hosts: current.hosts.map((host) => {
             if (host.id !== hostId) return host
-            updated = hostSchema.parse({ ...host, ...req.body, id: hostId })
+            const changes = { ...req.body }
+            // JSON não representa undefined; null remove explicitamente as opções SNMP.
+            for (const field of ['snmp', 'attachment'])
+              if (changes[field] === null) changes[field] = undefined
+            updated = hostSchema.parse({ ...host, ...changes, id: hostId })
             return updated
           }),
         })
@@ -90,7 +97,15 @@ export function createHostsRouter(monitorService: MonitorService): Router {
       await monitorService.updateConfiguration((current) => {
         if (!current.hosts.some((host) => host.id === hostId))
           throw new Error('Dispositivo não encontrado')
-        return { ...current, hosts: current.hosts.filter((host) => host.id !== hostId) }
+        // Remover o equipamento também remove vínculos físicos que ficariam órfãos.
+        return storedConfigSchema.parse({
+          ...current,
+          hosts: current.hosts
+            .filter((host) => host.id !== hostId)
+            .map((host) =>
+              host.attachment?.hostId === hostId ? { ...host, attachment: undefined } : host,
+            ),
+        })
       })
       res.status(204).end()
     } catch (error) {

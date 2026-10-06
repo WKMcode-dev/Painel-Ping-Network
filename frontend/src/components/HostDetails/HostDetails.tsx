@@ -158,6 +158,22 @@ export function HostDetails({ host, events, onClose }: HostDetailsProps) {
             </dl>
           </section>
 
+          {host.snmp && (
+            <section>
+              <h3>SNMP</h3>
+              <p>
+                {host.snmpResult?.status === 'available'
+                  ? 'Disponível'
+                  : (host.snmpResult?.error ?? 'Aguardando coleta')}
+              </p>
+              {host.snmpResult?.interfaces.map((item) => (
+                <p key={item.index}>
+                  Interface {item.index}: administrativo {item.adminStatus ?? '—'} / operacional{' '}
+                  {item.operStatus ?? '—'}
+                </p>
+              ))}
+            </section>
+          )}
           <HostIncidentHistory host={host} hostEvents={hostEvents} eventError={eventError} />
         </div>
       </aside>

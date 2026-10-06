@@ -1,3 +1,4 @@
+import { SnmpFields } from './SnmpFields'
 import type { DeviceConfig, PanelPreferences } from '../../types/config'
 import type { ServiceCheck } from '../../types/monitor'
 import styles from './DeviceManager.module.css'
@@ -9,6 +10,7 @@ const localDate = (value?: string | null) =>
     : ''
 const utcDate = (value: string) => (value ? new Date(value).toISOString() : null)
 interface Props {
+  devices: DeviceConfig[]
   editing: DeviceConfig
   busy: boolean
   preferences: PanelPreferences
@@ -20,6 +22,7 @@ interface Props {
 /** Formulário controlado: salvar/remover e confirmação de descarte pertencem ao gerenciador. */
 export function DeviceForm({
   editing,
+  devices,
   busy,
   preferences,
   onPreferences,
@@ -227,6 +230,7 @@ export function DeviceForm({
           Adicionar serviço
         </button>
       </fieldset>
+      <SnmpFields key={editing.id} device={editing} devices={devices} change={change} />
       <label>
         Início da manutenção
         <input
