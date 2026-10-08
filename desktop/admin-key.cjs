@@ -21,6 +21,6 @@ async function showAdminKey(parent, key, { dialog, clipboard }) {
     cancelId: 1,
     noLink: true,
   })
-  if (result.response === 0) clipboard.writeText(key)
+  if (result.response === 0) await clipboard.writeText(key)
 }
 module.exports = { showAdminKey }

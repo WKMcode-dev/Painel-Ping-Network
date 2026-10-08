@@ -191,7 +191,7 @@ async function start() {
     )
     if (!rendered) throw new Error('Interface desktop vazia')
     // Verifica a integração de clipboard nativo sem usar nem registrar a chave real.
-    const previousClipboard = clipboard.readText()
+    const previousClipboard = await clipboard.readText()
     try {
       const example = '0123456789abcdef'.repeat(32)
       await showAdminKey(window, example, {
@@ -204,14 +204,14 @@ async function start() {
           },
         },
       })
-      if (clipboard.readText() !== example) throw new Error('Cópia da chave incompleta')
+      if ((await clipboard.readText()) !== example) throw new Error('Cópia da chave incompleta')
       await showAdminKey(window, 'f'.repeat(64), {
         clipboard,
         dialog: { showMessageBox: async () => ({ response: 1 }) },
       })
-      if (clipboard.readText() !== example) throw new Error('Fechar alterou o clipboard')
+      if ((await clipboard.readText()) !== example) throw new Error('Fechar alterou o clipboard')
     } finally {
-      clipboard.writeText(typeof previousClipboard === 'string' ? previousClipboard : '')
+      await clipboard.writeText(typeof previousClipboard === 'string' ? previousClipboard : '')
     }
     console.log('Desktop: interface renderizada e API disponível')
     app.quit()
