@@ -1,4 +1,4 @@
-import { Clock3, Expand, RadioTower, Settings, Network } from 'lucide-react'
+import { Clock3, Expand, Settings, Network } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ConnectionState } from '../../types/monitor'
 import styles from './DashboardHeader.module.css'
@@ -28,7 +28,7 @@ export function DashboardHeader({ connection, onSettings, onDevices, onTv }: Das
     <header className={styles.header}>
       <div className={styles.brand}>
         <span className={styles.logo}>
-          <RadioTower size={21} />
+          <img src="/favicon.svg" width={39} height={39} alt="" />
         </span>
         <span>
           <strong>PAINEL PING</strong>
@@ -62,7 +62,7 @@ export function DashboardHeader({ connection, onSettings, onDevices, onTv }: Das
         >
           <Settings size={18} />
         </button>
-        <button onClick={onTv} type="button" title="Modo TV: apenas mapa em tela cheia">
+        <button onClick={onTv} type="button" title="Modo TV: seção atual em tela cheia">
           <Expand size={17} />
           <span className="sr-only">Modo TV em tela cheia</span>
         </button>

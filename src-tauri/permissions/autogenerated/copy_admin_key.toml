@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-copy-admin-key"
+description = "Enables the copy_admin_key command without any pre-configured scope."
+commands.allow = ["copy_admin_key"]
+
+[[permission]]
+identifier = "deny-copy-admin-key"
+description = "Denies the copy_admin_key command without any pre-configured scope."
+commands.deny = ["copy_admin_key"]

@@ -58,3 +58,35 @@
 .scroll details {
   margin-top: 6px;
 }
+
+.incidents[data-tv='true'] {
+  min-height: 100dvh;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+}
+.incidents:fullscreen {
+  width: 100vw;
+  height: 100dvh;
+  overflow: auto;
+}
+.incidents[data-tv='true'] .scroll {
+  max-height: none;
+  flex: 1;
+  min-height: 0;
+}
+.exitBar {
+  display: flex;
+  justify-content: flex-end;
+  position: sticky;
+  top: 0;
+  z-index: 6;
+}
+.exitBar button {
+  padding: 10px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}

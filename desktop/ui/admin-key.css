@@ -1,0 +1,25 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+body {
+  margin: 0;
+  padding: 24px;
+}
+h1 {
+  font-size: 20px;
+}
+textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 160px;
+  overflow-wrap: anywhere;
+  resize: vertical;
+  font: 16px monospace;
+  padding: 12px;
+}
+button {
+  padding: 10px 16px;
+  margin: 12px 8px 0 0;
+  cursor: pointer;
+}

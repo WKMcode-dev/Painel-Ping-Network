@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "admin-key-access"
+description = "Consulta e cópia explícita da chave na janela local."
+commands.allow = ["read_admin_key", "copy_admin_key", "close_admin_key"]

@@ -16,16 +16,32 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
-        env:
-          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - run: npm run format:check
       - run: npm run lint
       - run: npm test
       - run: npm run build
 
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:ui
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ui-failure
+          path: test-results/
+
   desktop:
-    needs: check
+    needs: [check, ui]
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -35,42 +51,42 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - name: Linux native dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xvfb
       - run: npm ci
       - run: npm run desktop:stage
-      - name: Prepare sandbox in Linux test VM
-        if: runner.os == 'Linux'
-        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-      - name: Smoke test Linux desktop
-        timeout-minutes: 2
-        if: runner.os == 'Linux'
-        run: xvfb-run -a npm run desktop:smoke
-        env:
-          DATA_DIR: ${{ runner.temp }}/painel-ping-smoke
-      - name: Smoke test Windows desktop
-        timeout-minutes: 2
-        if: runner.os == 'Windows'
-        run: npm run desktop:smoke
-        env:
-          DATA_DIR: ${{ runner.temp }}\painel-ping-smoke
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --release --locked
       - name: Package Linux
         if: runner.os == 'Linux'
-        run: npx electron-builder --projectDir desktop/staging --config ../builder.json --linux --x64
+        run: npx tauri build --bundles deb,appimage
       - name: Package Windows
         if: runner.os == 'Windows'
-        run: npx electron-builder --projectDir desktop/staging --config ../builder.json --win --x64
+        run: npx tauri build --bundles nsis
+      - run: node desktop/collect-artifacts.mjs
       - name: Smoke test packaged Linux desktop
-        timeout-minutes: 2
+        timeout-minutes: 3
         if: runner.os == 'Linux'
-        run: xvfb-run -a ./desktop-release/linux-unpacked/painel-ping-desktop --smoke-test
+        shell: bash
+        run: |
+          chmod +x desktop-release/*.AppImage
+          desktop-release/*.AppImage --appimage-extract
+          xvfb-run -a ./squashfs-root/AppRun --smoke-test
         env:
           DATA_DIR: ${{ runner.temp }}/painel-ping-smoke
-      - name: Smoke test packaged Windows desktop
-        timeout-minutes: 2
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+      - name: Smoke test installed Windows desktop
+        timeout-minutes: 3
         if: runner.os == 'Windows'
         shell: pwsh
-        run: |
-          $desktopProcess = Start-Process -FilePath './desktop-release/win-unpacked/Painel Ping.exe' -ArgumentList '--smoke-test' -Wait -PassThru
-          if ($desktopProcess.ExitCode -ne 0) { throw "Desktop exited with $($desktopProcess.ExitCode)" }
+        run: ./desktop/test-installed.ps1
         env:
           DATA_DIR: ${{ runner.temp }}\painel-ping-smoke
       - name: Verify graceful shutdown
@@ -93,7 +109,7 @@ jobs:
 
   release:
     name: Publish versioned release
-    needs: [check, desktop]
+    needs: [check, ui, desktop]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:

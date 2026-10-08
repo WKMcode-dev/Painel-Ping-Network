@@ -56,6 +56,9 @@ export function NetworkMap({
   const [edgeId, setEdgeId] = useState<string | null>(null)
   const [connecting, setConnecting] = useState<ConnectionSource | null>(null)
   const [tool, setTool] = useState<'select' | 'pan'>('select')
+  const [pulses, setPulses] = useState(
+    () => localStorage.getItem('painel-ping-map-pulses') !== 'off',
+  )
   const [locked, setLocked] = useState(false)
   const [preview, setPreview] = useState<Graph | null>(null)
   const [hint, setHint] = useState('')
@@ -234,6 +237,17 @@ export function NetworkMap({
         }}
       />
       <div className={styles.status}>
+        <button
+          type="button"
+          aria-pressed={pulses}
+          title="Efeito visual; não representa tráfego medido"
+          onClick={() => {
+            setPulses(!pulses)
+            localStorage.setItem('painel-ping-map-pulses', pulses ? 'off' : 'on')
+          }}
+        >
+          Pulsos {pulses ? 'ativados' : 'desativados'}
+        </button>
         <span>
           {tv
             ? 'Apresentação • edição bloqueada'
@@ -353,6 +367,7 @@ export function NetworkMap({
         >
           {graph && (
             <MapEdges
+              pulses={pulses}
               graph={graph}
               edges={edges}
               invalidIds={tv ? undefined : invalidEdges}

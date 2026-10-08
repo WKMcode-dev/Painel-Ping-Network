@@ -76,12 +76,8 @@ async function shutdown(): Promise<void> {
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
 
-// IPC privado do processo auxiliar desktop permite flush antes de encerrar o aplicativo.
-const parent = (
-  process as typeof process & {
-    parentPort?: { on(name: string, listener: (event: { data: unknown }) => void): void }
-  }
-).parentPort
-parent?.on('message', (event) => {
-  if (event.data === 'shutdown') void shutdown().then(() => process.exit(0))
-})
+// Canal privado; EOF também finaliza se o processo pai desaparecer.
+if (process.argv.includes('--desktop-stdio')) {
+  const { attachDesktopShutdown } = await import('./services/desktop-lifecycle.js')
+  attachDesktopShutdown(process.stdin, shutdown, (code) => process.exit(code))
+}

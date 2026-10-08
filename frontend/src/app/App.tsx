@@ -57,18 +57,29 @@ export default function App() {
     const sync = () => {
       if (!document.fullscreenElement) setTv(false)
     }
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setTv(false)
+    }
     document.addEventListener('fullscreenchange', sync)
-    return () => document.removeEventListener('fullscreenchange', sync)
+    document.addEventListener('keydown', escape)
+    return () => {
+      document.removeEventListener('fullscreenchange', sync)
+      document.removeEventListener('keydown', escape)
+    }
   }, [])
   const toggleTv = async () => {
     if (tv) {
       setTv(false)
-      if (document.fullscreenElement) await document.exitFullscreen()
+      if (document.fullscreenElement) await document.exitFullscreen().catch(() => {})
       return
     }
     // Enter fullscreen on the active section; keep that section mounted while presenting.
     const target = document.getElementById(
-      view === 'cards' ? 'monitor-cards' : 'infrastructure-map',
+      view === 'cards'
+        ? 'monitor-cards'
+        : view === 'incidents'
+          ? 'monitor-incidents'
+          : 'infrastructure-map',
     )
     setTv(true)
     try {
@@ -278,6 +289,9 @@ export default function App() {
           {view === 'incidents' && (
             <Incidents
               hosts={currentHosts}
+              group={groups.includes(group) ? group : ''}
+              tv={tv}
+              onExitTv={() => void toggleTv()}
               generatedAt={snapshot.generatedAt}
               live={connection === 'live'}
               onDetails={setSelectedId}

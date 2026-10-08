@@ -5,6 +5,7 @@ import { junctionPoint, edgeRoute, edgePoints, worldPoint } from '../../features
 import { privateLabel } from '../../utils/privacy'
 import styles from './NetworkMap.module.css'
 interface Props {
+  pulses: boolean
   graph: Graph
   edges: MapEdge[]
   invalidIds?: Set<string>
@@ -25,6 +26,7 @@ interface Props {
 }
 /** SVG de conexões: geometria pura e comandos explícitos, sem persistência ou seleção própria. */
 export function MapEdges({
+  pulses,
   graph,
   edges,
   invalidIds,
@@ -64,6 +66,15 @@ export function MapEdges({
                   e.lineStyle === 'dashed' ? '10 7' : e.lineStyle === 'dotted' ? '2 6' : undefined,
               }}
             />
+            {pulses && (
+              <path
+                className={styles.edgePulse}
+                d={curve.path}
+                pathLength={100}
+                aria-hidden="true"
+                style={{ stroke: e.stroke ?? undefined, strokeWidth: (e.lineWidth ?? 2) + 2 }}
+              />
+            )}
             <path
               className={styles.edgeHit}
               d={curve.path}

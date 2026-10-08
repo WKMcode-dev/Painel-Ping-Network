@@ -680,3 +680,27 @@ button.save {
     animation: none;
   }
 }
+
+/* Pulso decorativo segue o mesmo caminho das curvas e dobras; não mede tráfego. */
+.edgePulse {
+  fill: none;
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-dasharray: 4 96;
+  pointer-events: none;
+  animation: edgeSignal 3s linear infinite;
+  opacity: 0.85;
+}
+@keyframes edgeSignal {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .edgePulse {
+    display: none;
+  }
+}

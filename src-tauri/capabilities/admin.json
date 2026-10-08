@@ -1,0 +1,6 @@
+{
+  "identifier": "local-admin-key",
+  "description": "Somente a janela local pode consultar ou copiar a chave administrativa.",
+  "windows": ["admin-key"],
+  "permissions": ["admin-key-access"]
+}

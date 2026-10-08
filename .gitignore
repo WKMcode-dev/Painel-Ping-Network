@@ -39,3 +39,11 @@ admin-access.json
 desktop/staging/
 desktop-release/
 backend/storage/incident-reports.json
+
+# Recursos e ícones Tauri são gerados a partir do código/SVG versionado.
+src-tauri/target/
+src-tauri/resources/
+src-tauri/icons/
+src-tauri/gen/
+playwright-report/
+test-results/

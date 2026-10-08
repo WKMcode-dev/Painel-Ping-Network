@@ -6,12 +6,15 @@ import { formatDateTime, formatDuration } from '../../utils/formatters'
 import styles from './Incidents.module.css'
 interface Props {
   hosts: HostSnapshot[]
+  group: string
+  tv: boolean
+  onExitTv: () => void
   generatedAt: string
   live: boolean
   onDetails: (id: string) => void
 }
 /** Apresenta fatos e evidências; não gera listas de hipóteses para o operador. */
-export function Incidents({ hosts, generatedAt, live, onDetails }: Props) {
+export function Incidents({ hosts, group, tv, onExitTv, generatedAt, live, onDetails }: Props) {
   const [reports, setReports] = useState<IncidentReport[]>([])
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
@@ -37,6 +40,7 @@ export function Incidents({ hosts, generatedAt, live, onDetails }: Props) {
   const hostMap = new Map(hosts.map((host) => [host.id, host]))
   const filtered = reports.filter(
     (report) =>
+      (!group || hostMap.get(report.hostId)?.group === group) &&
       (state === 'all' || report.state === state) &&
       `${hostMap.get(report.hostId)?.name ?? report.deviceName ?? report.hostId} ${report.subject} ${report.observedFailure}`
         .toLowerCase()
@@ -45,7 +49,19 @@ export function Incidents({ hosts, generatedAt, live, onDetails }: Props) {
   const pages = Math.max(1, Math.ceil(filtered.length / 30)),
     current = Math.min(page, pages - 1)
   return (
-    <section className={styles.incidents} aria-label="Incidentes da rede">
+    <section
+      id="monitor-incidents"
+      className={styles.incidents}
+      data-tv={tv}
+      aria-label="Incidentes da rede"
+    >
+      {tv && (
+        <div className={styles.exitBar}>
+          <button type="button" onClick={onExitTv}>
+            Sair do modo TV
+          </button>
+        </div>
+      )}
       <div className={styles.controls}>
         <input
           aria-label="Buscar incidentes"
@@ -94,7 +110,7 @@ export function Incidents({ hosts, generatedAt, live, onDetails }: Props) {
               <tr key={report.id}>
                 <td>
                   <button
-                    disabled={!hostMap.has(report.hostId)}
+                    disabled={tv || !hostMap.has(report.hostId)}
                     onClick={() => onDetails(report.hostId)}
                   >
                     {privateLabel(

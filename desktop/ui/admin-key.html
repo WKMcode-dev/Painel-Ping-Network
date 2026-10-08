@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Acesso administrativo</title>
+    <link rel="stylesheet" href="admin-key.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Chave administrativa local</h1>
+      <p>Copie a chave e cole no campo de acesso do painel.</p>
+      <textarea id="key" aria-label="Chave administrativa" readonly spellcheck="false"></textarea>
+      <div><button id="copy" disabled>Copiar chave</button><button id="close">Fechar</button></div>
+      <p id="status" role="status"></p>
+    </main>
+    <script src="admin-key.js"></script>
+  </body>
+</html>
