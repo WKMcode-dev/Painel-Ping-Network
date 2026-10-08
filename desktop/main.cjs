@@ -211,7 +211,7 @@ async function start() {
       })
       if (clipboard.readText() !== example) throw new Error('Fechar alterou o clipboard')
     } finally {
-      clipboard.writeText(previousClipboard)
+      clipboard.writeText(typeof previousClipboard === 'string' ? previousClipboard : '')
     }
     console.log('Desktop: interface renderizada e API disponível')
     app.quit()
