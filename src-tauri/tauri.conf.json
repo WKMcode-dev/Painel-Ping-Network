@@ -20,7 +20,7 @@
     "resources": {
       "resources/runtime/": "runtime/"
     },
-    "category": "Network",
+    "category": "Utility",
     "shortDescription": "Monitoramento ICMP, servi\u00e7os e SNMP",
     "windows": {
       "nsis": {
