@@ -13,6 +13,7 @@ await cp(resolve(root, 'backend/package.json'), resolve(stage, 'backend/package.
 await cp(resolve(root, 'frontend/dist'), resolve(stage, 'frontend/dist'), { recursive: true })
 await mkdir(resolve(stage, 'desktop'))
 await cp(resolve(root, 'desktop/main.cjs'), resolve(stage, 'desktop/main.cjs'))
+await cp(resolve(root, 'desktop/admin-key.cjs'), resolve(stage, 'desktop/admin-key.cjs'))
 await cp(resolve(root, 'desktop/tray.png'), resolve(stage, 'desktop/tray.png'))
 await writeFile(
   resolve(stage, 'package.json'),

@@ -1,4 +1,14 @@
-const { app, BrowserWindow, dialog, Menu, Tray, nativeImage, utilityProcess } = require('electron')
+const {
+  app,
+  BrowserWindow,
+  dialog,
+  Menu,
+  Tray,
+  nativeImage,
+  utilityProcess,
+  clipboard,
+} = require('electron')
+const { showAdminKey } = require('./admin-key.cjs')
 const { createServer } = require('node:net')
 const { readFileSync, writeFileSync, appendFileSync, mkdirSync } = require('node:fs')
 const { join } = require('node:path')
@@ -142,16 +152,12 @@ async function start() {
           {
             label: 'Chave administrativa local',
             enabled: !remoteArgument,
-            click: () => {
+            click: async () => {
               try {
                 const key =
                   process.env.ADMIN_TOKEN ||
                   JSON.parse(readFileSync(join(dataPath(), 'admin-access.json'), 'utf8')).key
-                dialog.showMessageBox(window, {
-                  title: 'Acesso administrativo',
-                  message: key,
-                  detail: 'Use esta chave ao salvar alterações. Guarde-a em local seguro.',
-                })
+                await showAdminKey(window, key, { dialog, clipboard })
               } catch {
                 dialog.showErrorBox('Acesso administrativo', 'Não foi possível ler a chave local.')
               }
@@ -184,6 +190,29 @@ async function start() {
       "Boolean(document.title && document.querySelector('#root')?.children.length)",
     )
     if (!rendered) throw new Error('Interface desktop vazia')
+    // Verifica a integração de clipboard nativo sem usar nem registrar a chave real.
+    const previousClipboard = clipboard.readText()
+    try {
+      const example = '0123456789abcdef'.repeat(32)
+      await showAdminKey(window, example, {
+        clipboard,
+        dialog: {
+          showMessageBox: async (_parent, options) => {
+            if (!options.detail.includes(example.match(/.{1,32}/g).join('\n')))
+              throw new Error('Chave truncada')
+            return { response: 0 }
+          },
+        },
+      })
+      if (clipboard.readText() !== example) throw new Error('Cópia da chave incompleta')
+      await showAdminKey(window, 'f'.repeat(64), {
+        clipboard,
+        dialog: { showMessageBox: async () => ({ response: 1 }) },
+      })
+      if (clipboard.readText() !== example) throw new Error('Fechar alterou o clipboard')
+    } finally {
+      clipboard.writeText(previousClipboard)
+    }
     console.log('Desktop: interface renderizada e API disponível')
     app.quit()
   }
