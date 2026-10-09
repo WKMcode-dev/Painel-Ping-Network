@@ -192,6 +192,7 @@ test('pinça amplia no cursor e botão central navega sem editar balões', async
   await expect(world).not.toHaveAttribute('style', initial!)
   const afterPinch = await world.getAttribute('style')
   const node = canvas.locator('[data-map-text]').first()
+  await node.scrollIntoViewIfNeeded()
   const nodeStyle = await node.locator('..').getAttribute('style')
   const nodeBox = (await node.boundingBox())!
   await page.mouse.move(nodeBox.x + 10, nodeBox.y + 10)
@@ -202,9 +203,10 @@ test('pinça amplia no cursor e botão central navega sem editar balões', async
   await expect(node.locator('..')).toHaveAttribute('style', nodeStyle!)
   // Leva o ponteiro para fora antes de soltar: pointer capture mantém o arraste.
   const beforeOutside = await world.getAttribute('style')
-  await page.mouse.move(box.x + 10, box.y + 10)
+  const visibleBox = (await canvas.boundingBox())!
+  await page.mouse.move(visibleBox.x + 10, Math.max(visibleBox.y + 10, 20))
   await page.mouse.down({ button: 'middle' })
-  await page.mouse.move(box.x - 20, box.y - 20, { steps: 3 })
+  await page.mouse.move(visibleBox.x - 20, 10, { steps: 3 })
   await page.mouse.up({ button: 'middle' })
   await expect(world).not.toHaveAttribute('style', beforeOutside!)
 })
