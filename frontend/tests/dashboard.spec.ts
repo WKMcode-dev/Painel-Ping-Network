@@ -175,7 +175,7 @@ test('pinça amplia no cursor e botão central navega sem editar balões', async
   await page.getByRole('button', { name: 'Mapa', exact: true }).click()
   const canvas = page.getByLabel('Área do mapa:', { exact: false })
   const world = canvas.locator('div[style*="transform: translate"]').first()
-  await expect(world).toBeVisible()
+  await expect(canvas.locator('[data-map-text]').first()).toBeVisible()
   const initial = await world.getAttribute('style')
   const zoom = page.getByRole('button', { name: 'Aumentar zoom', exact: true }).locator('..')
   const before = await zoom.innerText()
