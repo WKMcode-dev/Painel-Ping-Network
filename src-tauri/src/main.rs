@@ -46,6 +46,9 @@ fn main() {
                 let origin = url.origin();
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
                     .title("Painel Ping").inner_size(1400.0, 900.0).min_inner_size(800.0, 600.0)
+                    // WebView2 precisa permitir gestos para entregar a pinça ao mapa.
+                    // O listener não passivo do canvas cancela o zoom da página.
+                    .zoom_hotkeys_enabled(true)
                     .data_directory(settings.profile.join("TauriWebView"))
                     .on_navigation(move |target| target.origin() == origin)
                     .on_page_load(move |w, event| { if smoke && matches!(event.event(), PageLoadEvent::Finished) {

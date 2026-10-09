@@ -1,6 +1,6 @@
 [package]
 name = "painel-ping-desktop"
-version = "1.12.0"
+version = "1.12.1"
 description = "Central de disponibilidade de redes"
 authors = ["WKMcode-dev"]
 edition = "2021"

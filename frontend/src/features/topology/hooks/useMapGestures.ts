@@ -50,11 +50,14 @@ export function useMapGestures({
   gesture,
 }: Props) {
   const start = (event: ReactPointerEvent, id?: string) => {
-    if (!editor.graph || event.button !== 0 || gesture.current) return
+    if (!editor.graph || (event.button !== 0 && event.button !== 1) || gesture.current) return
     event.stopPropagation()
+    if (event.button === 1) event.preventDefault()
+    // O botão central move somente a câmera, mesmo sobre um balão ou conexão.
+    const panning = event.button === 1 || tool === 'pan'
     setWheelPanning(false)
     canvas.current?.focus({ preventScroll: true })
-    if (connecting && id && editable && tool === 'select') {
+    if (!panning && connecting && id && editable && tool === 'select') {
       editor.commit(
         connectNodes(
           editor.graph,
@@ -69,7 +72,7 @@ export function useMapGestures({
       setConnecting(null)
       return
     }
-    const dragging = id && editable && tool === 'select'
+    const dragging = !panning && id && editable && tool === 'select'
     let ids = dragging
       ? selected.includes(id)
         ? selected
@@ -81,7 +84,7 @@ export function useMapGestures({
     if (dragging) {
       setSelected(ids)
       setEdgeId(null)
-    } else if (!id && tool === 'select') {
+    } else if (!panning && !id && tool === 'select') {
       if (!event.shiftKey) setSelected([])
       setEdgeId(null)
     }
@@ -92,7 +95,7 @@ export function useMapGestures({
       view,
       graph: editor.graph,
       ids,
-      mode: tool === 'pan' ? 'pan' : id ? 'nodes' : 'marquee',
+      mode: panning ? 'pan' : id ? 'nodes' : 'marquee',
       additive: event.shiftKey ? selected : [],
       moved: false,
       capture: event.currentTarget,

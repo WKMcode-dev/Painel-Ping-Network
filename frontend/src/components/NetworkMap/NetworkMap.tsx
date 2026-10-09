@@ -322,7 +322,7 @@ export function NetworkMap({
         ref={canvas}
         className={styles.canvas}
         tabIndex={0}
-        aria-label="Área do mapa: Mouse seleciona; Hand move a câmera; dois dedos navegam; Ctrl + roda ajusta zoom"
+        aria-label="Área do mapa: Mouse seleciona; Hand move a câmera; dois dedos navegam; pinça ajusta zoom; botão central arrasta"
         data-tool={wheelPanning ? 'pan' : tool}
         data-locked={!editable}
         style={
@@ -334,6 +334,13 @@ export function NetworkMap({
             '--grid-color': graph?.appearance?.gridColor ?? 'var(--border-soft)',
           } as CSSProperties
         }
+        onPointerDownCapture={(e) => {
+          if (e.button === 1 && !(e.target as Element).closest('aside,input,select,textarea'))
+            start(e)
+        }}
+        onAuxClick={(e) => {
+          if (e.button === 1) e.preventDefault()
+        }}
         onPointerDown={(e) => start(e)}
         onPointerMove={move}
         onPointerUp={(e) => end(e)}
@@ -490,9 +497,9 @@ export function NetworkMap({
       <footer className={styles.help}>
         <span>
           Mouse: selecionar/arrastar balões e seleção por área • Hand: mover câmera • Dois dedos no
-          touchpad: navegar • Ctrl + gesto/roda: zoom • + na linha: criar ramificação • Duplo clique
-          na linha: criar dobra • Arraste o ponto azul em passos de meia célula para ajustar • Duplo
-          clique no ponto: remover
+          touchpad: navegar • Pinça / Ctrl + roda: zoom • Botão central: arrastar • + na linha:
+          criar ramificação • Duplo clique na linha: criar dobra • Arraste o ponto azul em passos de
+          meia célula para ajustar • Duplo clique no ponto: remover
         </span>
         <details>
           <summary>Atalhos e informações</summary>

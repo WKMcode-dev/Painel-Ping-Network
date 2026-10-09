@@ -65,7 +65,8 @@ export function useMapViewport({ graph, tv, visibleIds, canvas, gesture }: Props
       const target = event.target as Element
       if (target.closest('aside,button,input,select,textarea')) return
       const text = target.closest('[data-map-text]')
-      if (text && text.scrollHeight > text.clientHeight) return
+      // A pinça deve ampliar o mapa inclusive sobre textos com rolagem.
+      if (isPanWheel(event) && text && text.scrollHeight > text.clientHeight) return
       event.preventDefault()
       const rect = element.getBoundingClientRect()
       if (gesture.current) return

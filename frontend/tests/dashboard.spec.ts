@@ -169,3 +169,42 @@ test('janela administrativa mostra 512 caracteres e solicita cópia explícita',
     await page.evaluate(() => (window as unknown as { testCommands: string[] }).testCommands),
   ).toEqual(['read_admin_key', 'copy_admin_key', 'close_admin_key'])
 })
+
+// A pinça de touchpad é exposta pelo Chromium como wheel + Ctrl.
+test('pinça amplia no cursor e botão central navega sem editar balões', async ({ page }) => {
+  await page.getByRole('button', { name: 'Mapa', exact: true }).click()
+  const canvas = page.getByLabel('Área do mapa:', { exact: false })
+  const world = canvas.locator('div[style*="transform: translate"]').first()
+  await expect(world).toBeVisible()
+  const initial = await world.getAttribute('style')
+  const zoom = page.getByRole('button', { name: 'Aumentar zoom', exact: true }).locator('..')
+  const before = await zoom.innerText()
+  const box = (await canvas.boundingBox())!
+  await canvas.dispatchEvent('wheel', {
+    deltaY: -180,
+    deltaX: 0,
+    deltaMode: 0,
+    ctrlKey: true,
+    clientX: box.x + 100,
+    clientY: box.y + 100,
+  })
+  await expect(zoom).not.toHaveText(before)
+  await expect(world).not.toHaveAttribute('style', initial!)
+  const afterPinch = await world.getAttribute('style')
+  const node = canvas.locator('[data-map-text]').first()
+  const nodeStyle = await node.locator('..').getAttribute('style')
+  const nodeBox = (await node.boundingBox())!
+  await page.mouse.move(nodeBox.x + 10, nodeBox.y + 10)
+  await page.mouse.down({ button: 'middle' })
+  await page.mouse.move(nodeBox.x + 90, nodeBox.y + 70, { steps: 5 })
+  await page.mouse.up({ button: 'middle' })
+  await expect(world).not.toHaveAttribute('style', afterPinch!)
+  await expect(node.locator('..')).toHaveAttribute('style', nodeStyle!)
+  // Leva o ponteiro para fora antes de soltar: pointer capture mantém o arraste.
+  const beforeOutside = await world.getAttribute('style')
+  await page.mouse.move(box.x + 10, box.y + 10)
+  await page.mouse.down({ button: 'middle' })
+  await page.mouse.move(box.x - 20, box.y - 20, { steps: 3 })
+  await page.mouse.up({ button: 'middle' })
+  await expect(world).not.toHaveAttribute('style', beforeOutside!)
+})
